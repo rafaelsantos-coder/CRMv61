@@ -1671,14 +1671,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     }
     try{
       const q=await whatsappApi('POST','/api/whatsapp/queues',d);
-      __whatsV65State.queueDraft=null;
-      __whatsV65State.expanded=q.id;
-      __whatsV65State.subtab='conexao';
+      __whatsV62State.queueDraft=null;
+      __whatsV62State.expanded=q.id;
+      __whatsV62State.subtab='conexao';
       const msg=instanceId&&token?'Fila criada com credenciais Z-API salvas!':'Fila criada. Preencha os dados Z-API na aba Conexão.';
       toast(msg);
-      await loadWhatsV65();
-      __whatsV65State.expanded=q.id;
-      __whatsV65State.subtab='conexao';
+      await loadWhatsV62();
+      __whatsV62State.expanded=q.id;
+      __whatsV62State.subtab='conexao';
       render();
     }catch(e){
       toast(e.message||'Erro ao criar fila.','error');

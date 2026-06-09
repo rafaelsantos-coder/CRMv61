@@ -36,8 +36,20 @@ function parseJson(v, fallback = {}) {
 // ── Auto-correção de schema do módulo WhatsApp ──────────────────────────────
 // Evita travar a criação de fila quando a migration ainda não foi aplicada no Railway.
 let _schemaReady = false;
+let _schemaPromise = null;
 async function ensureWhatsappSchema() {
   if (_schemaReady) return;
+  // Requisições simultâneas compartilham a mesma preparação — evita corrida
+  // de CREATE/ALTER concorrentes ("relation already exists").
+  if (!_schemaPromise) {
+    _schemaPromise = applyWhatsappSchema()
+      .then(() => { _schemaReady = true; })
+      .finally(() => { _schemaPromise = null; });
+  }
+  return _schemaPromise;
+}
+
+async function applyWhatsappSchema() {
   await pool.query(`CREATE TABLE IF NOT EXISTS api_instances (
     id SERIAL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
@@ -65,7 +77,7 @@ async function ensureWhatsappSchema() {
       ALTER TABLE api_instances
       ADD CONSTRAINT api_instances_provider_instance_unique UNIQUE(provider, instance_id);
     END IF;
-  EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
+  EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS attendance_queues (
     id SERIAL PRIMARY KEY,
@@ -145,8 +157,6 @@ async function ensureWhatsappSchema() {
   await pool.query(`ALTER TABLE chat_messages
     ADD COLUMN IF NOT EXISTS raw_payload JSONB DEFAULT '{}'::jsonb
   `).catch(() => {});
-
-  _schemaReady = true;
 }
 
 async function getQueueFull(id) {
