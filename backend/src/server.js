@@ -78,7 +78,7 @@ app.get('/health', async (req, res) => {
   res.status(200).json({
     ok: true,
     app: 'Sistema Integrado Sulnet V1',
-    version: 'v65-prod',
+    version: 'v67-prod',
     db: dbStatus,
     dbOk,
     uptime: Math.floor(process.uptime()),
@@ -91,7 +91,7 @@ app.get('/api/config', (req, res) => {
     app: 'Sistema Integrado Sulnet V1',
     googleCalendarConfigured: !!process.env.GOOGLE_CALENDAR_CLIENT_ID,
     googleClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID || '',
-    version: 'v65-prod',
+    version: 'v67-prod',
     dbConfigured: !!process.env.DATABASE_URL,
   });
 });
@@ -112,8 +112,10 @@ app.use('/webhook',          webhookRoutes);
 
 // ── Servir frontend ────────────────────────────────────────────────────────
 const publicDir = path.join(__dirname, '../public');
-app.use(express.static(publicDir, { maxAge: '1h' }));
+// index.html nunca entra em cache — evita servir versão antiga do app após deploy
+app.use(express.static(publicDir, { maxAge: '1h', index: false }));
 app.get('*', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
@@ -125,7 +127,7 @@ app.use((err, req, res, _next) => {
 
 // ── Start ──────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Sulnet V1 v65-prod rodando na porta ${PORT}`);
+  console.log(`✅ Sulnet V1 v67-prod rodando na porta ${PORT}`);
   console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
   console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
   console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
