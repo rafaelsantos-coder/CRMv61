@@ -1685,12 +1685,27 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     }
   }
 
+  window.editWhatsQueue=function(id){
+    __whatsV62State.queueDraft=null;
+    __whatsV62State.expanded=id;
+    __whatsV62State.subtab='conexao';
+    render();
+  }
+
+  window.toggleWhatsQueueActive=async function(id,makeActive){
+    try{
+      await whatsappApi('PATCH',`/api/whatsapp/queues/${id}`,{isActive:makeActive});
+      toast(makeActive?'Fila ativada.':'Fila desativada.');
+      await loadWhatsV62();
+    }catch(e){toast(e.message,'error')}
+  }
+
   window.deleteWhatsQueue=async function(id){
-    if(!confirm('Desativar esta fila?'))return;
+    if(!confirm('Excluir esta fila permanentemente? Grupos e vínculos de usuários da fila serão removidos. As conversas existentes são preservadas.'))return;
     try{
       await whatsappApi('DELETE',`/api/whatsapp/queues/${id}`);
       if(String(__whatsV62State.expanded)===String(id))__whatsV62State.expanded=null;
-      toast('Fila desativada.');
+      toast('Fila excluída.');
       await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
@@ -1792,12 +1807,16 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
                 <tr>
                   <td><button class="whats-expand" onclick="__whatsV62State.expanded=${__whatsV62State.expanded===q.id?'null':q.id};render()">›</button></td>
                   <td>${q.id}</td>
-                  <td>${esc(q.name)}</td>
+                  <td>${esc(q.name)}${q.is_active===false?' <span style="color:#b91c1c;font-size:11px;font-weight:600">(inativa)</span>':''}</td>
                   <td><span class="whats-pill-wa">${(q.queue_type||'zapi').toUpperCase()}</span></td>
                   <td><span class="whats-pill-ok">☑ ${esc(q.server_status||q.api_status||'Pendente')}</span></td>
                   <td>${q.groups_count||0}</td>
                   <td>${q.updated_at?new Date(q.updated_at).toLocaleString('pt-BR'):'-'}</td>
-                  <td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>
+                  <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <button class="whats-mini-btn" onclick="editWhatsQueue(${q.id})">Editar</button>
+                    <button class="whats-mini-btn" onclick="toggleWhatsQueueActive(${q.id},${q.is_active===false?'true':'false'})">${q.is_active===false?'Ativar':'Desativar'}</button>
+                    <button class="whats-mini-btn" style="color:#b91c1c;border-color:#fca5a5" onclick="deleteWhatsQueue(${q.id})">Excluir</button>
+                  </div></td>
                 </tr>
                 ${__whatsV62State.expanded===q.id?`<tr><td colspan="8">${whatsQueueExpandedV62(q)}</td></tr>`:''}
               `).join('')}

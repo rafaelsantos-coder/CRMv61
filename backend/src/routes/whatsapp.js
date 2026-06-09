@@ -415,11 +415,21 @@ router.patch('/queues/:id', async (req, res) => {
 });
 
 router.delete('/queues/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
-    await pool.query('UPDATE attendance_queues SET is_active=false, updated_at=NOW() WHERE id=$1', [req.params.id]);
+    await client.query('BEGIN');
+    // Conversas existentes são preservadas, apenas desvinculadas da fila.
+    await client.query('UPDATE conversations SET queue_id=NULL WHERE queue_id=$1', [req.params.id]);
+    // Grupos e vínculos de usuários caem em cascata (FK ON DELETE CASCADE).
+    const { rowCount } = await client.query('DELETE FROM attendance_queues WHERE id=$1', [req.params.id]);
+    await client.query('COMMIT');
+    if (!rowCount) return res.status(404).json({ error: 'Fila não encontrada.' });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao desativar fila: ' + err.message });
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Erro ao excluir fila: ' + err.message });
+  } finally {
+    client.release();
   }
 });
 
