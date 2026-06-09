@@ -78,7 +78,7 @@ app.get('/health', async (req, res) => {
   res.status(200).json({
     ok: true,
     app: 'Sistema Integrado Sulnet V1',
-    version: 'v61-prod',
+    version: 'v62-prod',
     db: dbStatus,
     dbOk,
     uptime: Math.floor(process.uptime()),
@@ -91,7 +91,7 @@ app.get('/api/config', (req, res) => {
     app: 'Sistema Integrado Sulnet V1',
     googleCalendarConfigured: !!process.env.GOOGLE_CALENDAR_CLIENT_ID,
     googleClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID || '',
-    version: 'v61-prod',
+    version: 'v62-prod',
     dbConfigured: !!process.env.DATABASE_URL,
   });
 });
@@ -125,7 +125,7 @@ app.use((err, req, res, _next) => {
 
 // ── Start ──────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Sulnet V1 v61-prod rodando na porta ${PORT}`);
+  console.log(`✅ Sulnet V1 v62-prod rodando na porta ${PORT}`);
   console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
   console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
   console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);

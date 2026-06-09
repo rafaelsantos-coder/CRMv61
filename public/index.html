@@ -1438,7 +1438,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const tabs=`<div class="credit-tabs"><button class="credit-tab ${ui.creditTab==='solicitacoes'?'active':''}" data-action="creditTab" data-tab="solicitacoes">Solicitações</button>${canConfig?`<button class="credit-tab ${ui.creditTab==='config'?'active':''}" data-action="creditTab" data-tab="config">Configuração de análise</button>`:''}</div>`;
     const solicitacoes=`<div class="grid four"><div class="mini-metric"><small>Total</small><strong>${reqs.length}</strong></div><div class="mini-metric"><small>Em análise</small><strong>${pending}</strong></div><div class="mini-metric"><small>Aprovadas</small><strong>${approved}</strong></div><div class="mini-metric"><small>Reprovadas</small><strong>${reproved}</strong></div></div>
     <div class="toolbar mt14"><div class="filters"><select class="select" data-action="filterCredit"><option value="todos">Todos os status</option>${['Enviado','Em análise','Aprovado','Pré-aprovado','Reprovado','Contestação enviada','Em análise gerencial','Liberado por exceção','Liberado com condição','Reprovação mantida'].map(s=>`<option ${ui.creditStatus===s?'selected':''}>${s}</option>`).join('')}</select></div><button class="btn btn-light" data-action="exportCredit">Exportar CSV</button></div>
-    <div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Cliente</th><th>Documento</th><th>Vendedor</th><th>Produto</th><th>Status</th><th>Score</th><th>Risco</th><th>Atualizado</th></tr></thead><tbody>${reqs.length?reqs.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).map(r=>`<tr class="clickable" data-action="openAnalysis" data-id="${r.id}"><td class="mono">${esc(r.protocol)}</td><td><strong>${esc(r.clientName)}</strong><br><span class="small">${esc(r.city||'-')}</span></td><td class="mono">${esc(r.cpf)}</td><td>${esc(r.sellerName||userName(st,r.requestedByUserId))}</td><td>${esc(r.product||'-')}</td><td>${analysisStatusBadge(r.status)}</td><td>${r.bko?.score??'-'}</td><td>${riskBadge(r.bko?.riskLevel)}</td><td>${fmtDate(r.updatedAt)}</td></tr>`).join(''):`<tr><td colspan="9"><div class="empty">Nenhuma solicitação encontrada.</div></td></tr>`}</tbody></table></div>`;
+    <div class="table-wrap"><table><thead><tr><th>Protocolo</th><th>Cliente</th><th>Documento</th><th>Vendedor</th><th>Produto</th><th>Status</th><th>Score</th><th>Risco</th><th>Atualizado</th></tr></thead><tbody>${reqs.length?reqs.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).map(r=>`<tr class="clickable" data-action="openAnalysis" data-id="${r.id}"><td class="mono">${esc(r.protocol)}</td><td><strong>${esc(r.clientName)}</strong><br><span class="small">${esc(r.city||'-')}</span></td><td class="mono">${esc(r.cpf)}</td><td>${esc(r.sellerName||userName(st,r.requestedByUserId))}</td><td>${esc(r.product||'-')}</td><td>${analysisStatusBadge(r.status)}</td><td>${r.bko?.score??'-'}</td><td>${riskBadge(r.bko?.riskLevel)}</td><td>${fmtDate(r.updatedAt)}</td></tr>`).join(''):`<tr><td colspan="8"><div class="empty">Nenhuma solicitação encontrada.</div></td></tr>`}</tbody></table></div>`;
     return `<div class="subbar"><div><h1>Análise Cadastral CPF/CNPJ</h1><p>Fluxo integrado vendedor → BKO → gerência, com regras automáticas de aprovação, pré-aprovação e reprovação.</p></div><button class="btn btn-primary" data-action="newAnalysis">+ Nova Solicitação</button></div>${tabs}${ui.creditTab==='config'&&canConfig?renderCreditRulesConfig(user):solicitacoes}`;
   }
 
@@ -1454,7 +1454,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
 
 
-  window.__whatsV61State = window.__whatsV61State || {
+  window.__whatsV62State = window.__whatsV62State || {
     tab:'filas',
     expanded:null,
     subtab:'conexao',
@@ -1466,68 +1466,79 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   };
 
   function whatsappAuthHeaders(){
-    const token=sessionStorage.getItem('sulnet_jwt')||localStorage.getItem('sulnet_integrado_session')||'';
-    return {'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})};
+    const token=sessionStorage.getItem('sulnet_jwt')
+      || localStorage.getItem('sulnet_jwt')
+      || sessionStorage.getItem('sulnet_integrado_session')
+      || localStorage.getItem('sulnet_integrado_session')
+      || sessionStorage.getItem('crm_user_id')
+      || localStorage.getItem('crm_user_id')
+      || '';
+    const h={'Content-Type':'application/json'};
+    if(token){
+      h.Authorization='Bearer '+token;
+      if(/^\d+$/.test(String(token))) h['x-user-id']=String(token);
+    }
+    return h;
   }
 
   async function whatsappApi(method,path,body){
     const r=await fetch(path,{method,headers:whatsappAuthHeaders(),body:body?JSON.stringify(body):undefined});
     const data=await r.json().catch(()=>null);
-    if(!r.ok)throw new Error(data?.error||'Erro na requisição WhatsApp');
+    if(!r.ok){ if(r.status===401) throw new Error('Token inválido. Faça logout e login novamente para atualizar a sessão.'); throw new Error(data?.error||'Erro na requisição WhatsApp'); }
     return data;
   }
 
-  async function loadWhatsV61(){
+  async function loadWhatsV62(){
     try{
       const [queues,groups,users]=await Promise.all([
         whatsappApi('GET','/api/whatsapp/queues'),
         whatsappApi('GET','/api/whatsapp/groups'),
         whatsappApi('GET','/api/whatsapp/users')
       ]);
-      __whatsV61State.queues=queues||[];
-      __whatsV61State.groups=groups||[];
-      __whatsV61State.users=users||[];
-      __whatsV61State.loaded=true;
+      __whatsV62State.queues=queues||[];
+      __whatsV62State.groups=groups||[];
+      __whatsV62State.users=users||[];
+      __whatsV62State.loaded=true;
       render();
     }catch(e){
-      __whatsV61State.loaded=true;
-      __whatsV61State.loadError=e.message;
+      __whatsV62State.loaded=true;
+      __whatsV62State.loadError=e.message;
     }
   }
 
   function adminAttendancePanel(){
-    if(!__whatsV61State.loaded)setTimeout(loadWhatsV61,0);
+    if(!__whatsV62State.loaded)setTimeout(loadWhatsV62,0);
     return `<div class="whats-admin-shell">
       <div class="whats-admin-tabs">
-        <button class="whats-admin-tab ${__whatsV61State.tab==='filas'?'active':''}" onclick="setWhatsV61Tab('filas')">1. Filas de WhatsApp</button>
-        <button class="whats-admin-tab ${__whatsV61State.tab==='grupos'?'active':''}" onclick="setWhatsV61Tab('grupos')">2. Grupos de Atendimento</button>
-        <button class="whats-admin-tab ${__whatsV61State.tab==='operacao'?'active':''}" onclick="setWhatsV61Tab('operacao')">3. Operação / Chat</button>
+        <button class="whats-admin-tab ${__whatsV62State.tab==='filas'?'active':''}" onclick="setWhatsV62Tab('filas')">1. Filas de WhatsApp</button>
+        <button class="whats-admin-tab ${__whatsV62State.tab==='grupos'?'active':''}" onclick="setWhatsV62Tab('grupos')">2. Grupos de Atendimento</button>
+        <button class="whats-admin-tab ${__whatsV62State.tab==='operacao'?'active':''}" onclick="setWhatsV62Tab('operacao')">3. Operação / Chat</button>
       </div>
-      ${__whatsV61State.loadError?`<div class="alert danger">Erro ao carregar módulo WhatsApp: ${esc(__whatsV61State.loadError)}</div>`:''}
-      ${__whatsV61State.tab==='filas'?whatsQueuesV61():__whatsV61State.tab==='grupos'?whatsGroupsV61():whatsOperationV61()}
+      ${__whatsV62State.loadError?`<div class="alert danger">Erro ao carregar módulo WhatsApp: ${esc(__whatsV62State.loadError)}</div>`:''}
+      ${__whatsV62State.tab==='filas'?whatsQueuesV62():__whatsV62State.tab==='grupos'?whatsGroupsV62():whatsOperationV62()}
     </div>`;
   }
 
-  window.setWhatsV61Tab=function(tab){
-    __whatsV61State.tab=tab;
+  window.setWhatsV62Tab=function(tab){
+    __whatsV62State.tab=tab;
     render();
   }
 
-  window.setWhatsV61Subtab=function(tab){
-    __whatsV61State.subtab=tab;
+  window.setWhatsV62Subtab=function(tab){
+    __whatsV62State.subtab=tab;
     render();
   }
 
   window.startCreateWhatsQueue=function(){
-    __whatsV61State.queueDraft={id:'novo',name:'',queue_type:'zapi',phone_number:''};
-    __whatsV61State.expanded='novo';
-    __whatsV61State.subtab='conexao';
+    __whatsV62State.queueDraft={id:'novo',name:'',queue_type:'zapi',phone_number:''};
+    __whatsV62State.expanded='novo';
+    __whatsV62State.subtab='conexao';
     render();
   }
 
   window.cancelCreateWhatsQueue=function(){
-    __whatsV61State.queueDraft=null;
-    __whatsV61State.expanded=null;
+    __whatsV62State.queueDraft=null;
+    __whatsV62State.expanded=null;
     render();
   }
 
@@ -1535,18 +1546,17 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const d={
       name:document.getElementById('wq-name')?.value?.trim()||'',
       queueType:document.getElementById('wq-type')?.value||'zapi',
-      phoneNumber:document.getElementById('wq-number')?.value?.trim()||'',
       type:'comercial',
       isActive:true
     };
     if(!d.name){toast('Informe o nome da fila.','error');return}
     try{
       const q=await whatsappApi('POST','/api/whatsapp/queues',d);
-      __whatsV61State.queueDraft=null;
-      __whatsV61State.expanded=q.id;
-      __whatsV61State.subtab='conexao';
+      __whatsV62State.queueDraft=null;
+      __whatsV62State.expanded=q.id;
+      __whatsV62State.subtab='conexao';
       toast('Fila criada. Configure a conexão Z-API.');
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
@@ -1554,14 +1564,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     if(!confirm('Desativar esta fila?'))return;
     try{
       await whatsappApi('DELETE',`/api/whatsapp/queues/${id}`);
-      if(String(__whatsV61State.expanded)===String(id))__whatsV61State.expanded=null;
+      if(String(__whatsV62State.expanded)===String(id))__whatsV62State.expanded=null;
       toast('Fila desativada.');
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
   window.saveWhatsZapiConfig=async function(id){
-    const q=__whatsV61State.queues.find(x=>String(x.id)===String(id));
+    const q=__whatsV62State.queues.find(x=>String(x.id)===String(id));
     const instanceId=document.getElementById('zapi-instance-id')?.value?.trim()||'';
     const token=document.getElementById('zapi-token')?.value?.trim()||'';
     const clientToken=document.getElementById('zapi-client-token')?.value?.trim()||'';
@@ -1579,8 +1589,8 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         isActive:true
       });
       toast('Conexão Z-API salva e verificada.');
-      await loadWhatsV61();
-      __whatsV61State.expanded=saved.id;
+      await loadWhatsV62();
+      __whatsV62State.expanded=saved.id;
     }catch(e){toast(e.message,'error')}
   }
 
@@ -1588,7 +1598,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     try{
       const r=await whatsappApi('POST',`/api/whatsapp/queues/${id}/test-status`,{});
       toast(r.connected?'Instância conectada.':'Instância desconectada.');
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
@@ -1596,12 +1606,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     try{
       const r=await whatsappApi('POST',`/api/whatsapp/queues/${id}/register-webhook`,{});
       toast('Webhook registrado: '+r.webhookUrl);
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
   window.saveWhatsQueueConfig=async function(id){
-    const q=__whatsV61State.queues.find(x=>String(x.id)===String(id));
+    const q=__whatsV62State.queues.find(x=>String(x.id)===String(id));
     if(!q)return;
     const settings={};
     document.querySelectorAll('[data-wq-setting]').forEach(el=>settings[el.dataset.wqSetting]=el.value);
@@ -1612,12 +1622,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         distributionType:settings.distributionType||q.distribution_type
       });
       toast('Configurações da fila salvas.');
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
   window.saveWhatsQueueMessages=async function(id){
-    const q=__whatsV61State.queues.find(x=>String(x.id)===String(id));
+    const q=__whatsV62State.queues.find(x=>String(x.id)===String(id));
     const messagesConfig={};
     document.querySelectorAll('[data-wq-message]').forEach(el=>messagesConfig[el.dataset.wqMessage]=el.value);
     try{
@@ -1628,12 +1638,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         afterHoursMessage:messagesConfig.afterHours||q.after_hours_message||''
       });
       toast('Mensagens da fila salvas.');
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
-  function whatsQueuesV61(){
-    const queues=__whatsV61State.queues||[];
+  function whatsQueuesV62(){
+    const queues=__whatsV62State.queues||[];
     return `<div class="whats-card">
       <div class="whats-title">
         <div>
@@ -1643,7 +1653,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         <button class="btn btn-primary" onclick="startCreateWhatsQueue()">+ Criar fila</button>
       </div>
 
-      ${queues.length===0 && !__whatsV61State.queueDraft ? `
+      ${queues.length===0 && !__whatsV62State.queueDraft ? `
         <div class="empty" style="padding:38px">
           Nenhuma fila de WhatsApp cadastrada.<br>
           Clique em <strong>+ Criar fila</strong> para cadastrar a primeira fila.
@@ -1651,37 +1661,36 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         <div class="table-wrap">
           <table class="whats-table">
             <thead><tr>
-              <th></th><th>ID</th><th>Fila</th><th>Número WA</th><th>Tipo</th><th>Servidor</th><th>Grupos</th><th>Última modificação</th><th>Funções</th>
+              <th></th><th>ID</th><th>Fila</th><th>Tipo</th><th>Servidor</th><th>Grupos</th><th>Última modificação</th><th>Funções</th>
             </tr></thead>
             <tbody>
               ${queues.map(q=>`
                 <tr>
-                  <td><button class="whats-expand" onclick="__whatsV61State.expanded=${__whatsV61State.expanded===q.id?'null':q.id};render()">›</button></td>
+                  <td><button class="whats-expand" onclick="__whatsV62State.expanded=${__whatsV62State.expanded===q.id?'null':q.id};render()">›</button></td>
                   <td>${q.id}</td>
                   <td>${esc(q.name)}</td>
-                  <td>${esc(q.phone_number||'-')}</td>
                   <td><span class="whats-pill-wa">${(q.queue_type||'zapi').toUpperCase()}</span></td>
                   <td><span class="whats-pill-ok">☑ ${esc(q.server_status||q.api_status||'Pendente')}</span></td>
                   <td>${q.groups_count||0}</td>
                   <td>${q.updated_at?new Date(q.updated_at).toLocaleString('pt-BR'):'-'}</td>
                   <td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>
                 </tr>
-                ${__whatsV61State.expanded===q.id?`<tr><td colspan="9">${whatsQueueExpandedV61(q)}</td></tr>`:''}
+                ${__whatsV62State.expanded===q.id?`<tr><td colspan="8">${whatsQueueExpandedV62(q)}</td></tr>`:''}
               `).join('')}
-              ${__whatsV61State.queueDraft?`<tr><td colspan="9">${whatsCreateQueueFormV61()}</td></tr>`:''}
+              ${__whatsV62State.queueDraft?`<tr><td colspan="8">${whatsCreateQueueFormV62()}</td></tr>`:''}
             </tbody>
           </table>
         </div>`}
     </div>`;
   }
 
-  function whatsCreateQueueFormV61(){
+  function whatsCreateQueueFormV62(){
     return `<div class="whats-expand-panel">
       <h3 style="margin:0 0 16px">Criar nova fila de WhatsApp</h3>
-      <div class="whats-form-grid three">
+      <div class="whats-form-grid two">
         <div class="whats-field">
           <label>Nome da fila</label>
-          <input id="wq-name" placeholder="Ex: Tráfego pago Site">
+          <input id="wq-name" placeholder="Ex: Comercial">
         </div>
         <div class="whats-field">
           <label>Tipo da fila</label>
@@ -1691,13 +1700,9 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
             <option value="wamd" disabled>WAMD - futuro</option>
           </select>
         </div>
-        <div class="whats-field">
-          <label>Número WA</label>
-          <input id="wq-number" placeholder="5517999999999">
-        </div>
       </div>
       <div class="bot-help" style="margin-top:16px">
-        Após criar a fila, o sistema libera a configuração real da Z-API, webhook, mensagens e regras.
+        Após criar a fila, o sistema abrirá automaticamente a aba <strong>Conexão</strong> para preencher ID da instância, token, Client-Token, número conectado e webhook.
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
         <button class="btn btn-light" onclick="cancelCreateWhatsQueue()">Cancelar</button>
@@ -1706,32 +1711,32 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-  function whatsQueueExpandedV61(q){
-    const tab=__whatsV61State.subtab||'conexao';
+  function whatsQueueExpandedV62(q){
+    const tab=__whatsV62State.subtab||'conexao';
     return `<div class="whats-expand-panel">
       <div class="whats-subtabs">
-        <div class="whats-subtab ${tab==='conexao'?'active':''}" onclick="setWhatsV61Subtab('conexao')">Conexão</div>
-        <div class="whats-subtab ${tab==='config'?'active':''}" onclick="setWhatsV61Subtab('config')">Configurações</div>
-        <div class="whats-subtab ${tab==='mensagens'?'active':''}" onclick="setWhatsV61Subtab('mensagens')">Mensagens</div>
-        <div class="whats-subtab ${tab==='catalogo'?'active':''}" onclick="setWhatsV61Subtab('catalogo')">Catálogo e produtos</div>
-        <div class="whats-subtab ${tab==='suporte'?'active':''}" onclick="setWhatsV61Subtab('suporte')">Assistência / Suporte remotos</div>
+        <div class="whats-subtab ${tab==='conexao'?'active':''}" onclick="setWhatsV62Subtab('conexao')">Conexão</div>
+        <div class="whats-subtab ${tab==='config'?'active':''}" onclick="setWhatsV62Subtab('config')">Configurações</div>
+        <div class="whats-subtab ${tab==='mensagens'?'active':''}" onclick="setWhatsV62Subtab('mensagens')">Mensagens</div>
+        <div class="whats-subtab ${tab==='catalogo'?'active':''}" onclick="setWhatsV62Subtab('catalogo')">Catálogo e produtos</div>
+        <div class="whats-subtab ${tab==='suporte'?'active':''}" onclick="setWhatsV62Subtab('suporte')">Assistência / Suporte remotos</div>
       </div>
-      ${tab==='conexao'?whatsConnectionTabV61(q):tab==='config'?whatsConfigTabV61(q):tab==='mensagens'?whatsMessagesTabV61(q):whatsPlaceholderTabV61(tab)}
+      ${tab==='conexao'?whatsConnectionTabV62(q):tab==='config'?whatsConfigTabV62(q):tab==='mensagens'?whatsMessagesTabV62(q):whatsPlaceholderTabV62(tab)}
     </div>`;
   }
 
-  function whatsConnectionTabV61(q){
+  function whatsConnectionTabV62(q){
     return `<div style="padding:18px 0">
       <div class="whats-form-grid three">
         <div class="whats-field"><label>Nome da fila</label><input value="${esc(q.name||'')}" readonly></div>
         <div class="whats-field"><label>Tipo da fila</label><select disabled><option>Z-API / WhatsApp</option></select></div>
         <div class="whats-field"><label>Número WA</label><input id="zapi-phone-number" value="${esc(q.phone_number||'')}" placeholder="5517999999999"></div>
       </div>
-      ${zapiCredentialCardV61(q)}
+      ${zapiCredentialCardV62(q)}
     </div>`;
   }
 
-  function zapiCredentialCardV61(q){
+  function zapiCredentialCardV62(q){
     const webhook=(location.origin||'https://crmv1-production-56bc.up.railway.app')+'/webhook';
     const connected=String(q.server_status||q.api_status||'').toLowerCase().includes('conect')||String(q.server_status||'').toLowerCase().includes('autenticado');
     return `<div class="zapi-config-card" style="margin-top:18px">
@@ -1769,7 +1774,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-  function whatsConfigTabV61(q){
+  function whatsConfigTabV62(q){
     const s=q.settings||{};
     return `<div style="padding:18px 0">
       <div class="whats-form-grid">
@@ -1791,7 +1796,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-  function whatsMessagesTabV61(q){
+  function whatsMessagesTabV62(q){
     const m=q.messages_config||{};
     return `<div style="padding:18px 0">
       <div class="whats-form-grid three">
@@ -1807,12 +1812,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-  function whatsPlaceholderTabV61(tab){
+  function whatsPlaceholderTabV62(tab){
     return `<div style="padding:32px;text-align:center;color:#6b7280">Área ${esc(tab)} preparada para evolução futura.</div>`;
   }
 
   window.startCreateWhatsGroup=function(){
-    __whatsV61State.editingGroup={id:null,name:'',queue_id:null,users:[]};
+    __whatsV62State.editingGroup={id:null,name:'',queue_id:null,users:[]};
     render();
   }
 
@@ -1827,14 +1832,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     try{
       await whatsappApi('POST','/api/whatsapp/groups',{name,queueId,distributionType,maxPerAgent,users,isActive:true});
       toast('Grupo salvo e vinculado ao chat.');
-      await loadWhatsV61();
+      await loadWhatsV62();
     }catch(e){toast(e.message,'error')}
   }
 
-  function whatsGroupsV61(){
-    const groups=__whatsV61State.groups||[];
-    const queues=__whatsV61State.queues||[];
-    const users=__whatsV61State.users||[];
+  function whatsGroupsV62(){
+    const groups=__whatsV62State.groups||[];
+    const queues=__whatsV62State.queues||[];
+    const users=__whatsV62State.users||[];
     return `<div class="group-board">
       <div class="whats-card">
         <div class="whats-title">
@@ -1861,7 +1866,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-  function whatsOperationV61(){
+  function whatsOperationV62(){
     return `<div class="whats-card">
       <div class="whats-title"><div><h3>Operação / Chat</h3><p>O chat atual passa a respeitar filas e usuários por grupo, pois os grupos espelham acesso em queue_users.</p></div></div>
       <div class="empty">As conversas recebidas pelo webhook serão vinculadas à fila pela instância Z-API e aparecerão apenas para usuários do grupo/fila.</div>
