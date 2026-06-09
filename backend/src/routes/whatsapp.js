@@ -422,15 +422,31 @@ router.post('/queues/:id/test-status', async (req, res) => {
     const status = await zapi.checkStatus(creds);
     const connected = !!(status.connected || status.smartphoneConnected);
 
+    // Número conectado vem da Z-API automaticamente
+    const phoneNumber = status.connectedPhone || status.phone || status.number || status.wid || null;
+    const cleanPhone  = phoneNumber ? String(phoneNumber).replace(/[^0-9]/g, '') : null;
+
     await pool.query(`
-      UPDATE api_instances SET status=$1, last_status_at=NOW(), updated_at=NOW() WHERE id=$2
-    `, [connected ? 'connected' : 'disconnected', q.api_instance_id]);
+      UPDATE api_instances SET
+        status=$1, last_status_at=NOW(), updated_at=NOW()
+        ${cleanPhone ? ', phone_number=$3' : ''}
+      WHERE id=$2
+    `, cleanPhone
+      ? [connected ? 'connected' : 'disconnected', q.api_instance_id, cleanPhone]
+      : [connected ? 'connected' : 'disconnected', q.api_instance_id]
+    );
+
+    if (cleanPhone) {
+      await pool.query(`
+        UPDATE attendance_queues SET phone_number=$1, updated_at=NOW() WHERE id=$2
+      `, [cleanPhone, q.id]);
+    }
 
     await pool.query(`
       UPDATE attendance_queues SET server_status=$1, updated_at=NOW() WHERE id=$2
     `, [connected ? 'Autenticado' : 'Desconectado', q.id]);
 
-    res.json({ ok: true, connected, raw: status });
+    res.json({ ok: true, connected, phoneNumber: cleanPhone, raw: status });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao testar Z-API: ' + err.message });
   }
