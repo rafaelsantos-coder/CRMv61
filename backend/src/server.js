@@ -112,8 +112,10 @@ app.use('/webhook',          webhookRoutes);
 
 // ── Servir frontend ────────────────────────────────────────────────────────
 const publicDir = path.join(__dirname, '../public');
-app.use(express.static(publicDir, { maxAge: '1h' }));
+// index.html nunca entra em cache — evita servir versão antiga do app após deploy
+app.use(express.static(publicDir, { maxAge: '1h', index: false }));
 app.get('*', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
