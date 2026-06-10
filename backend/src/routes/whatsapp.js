@@ -36,20 +36,8 @@ function parseJson(v, fallback = {}) {
 // ── Auto-correção de schema do módulo WhatsApp ──────────────────────────────
 // Evita travar a criação de fila quando a migration ainda não foi aplicada no Railway.
 let _schemaReady = false;
-let _schemaPromise = null;
 async function ensureWhatsappSchema() {
   if (_schemaReady) return;
-  // Requisições simultâneas compartilham a mesma preparação — evita corrida
-  // de CREATE/ALTER concorrentes ("relation already exists").
-  if (!_schemaPromise) {
-    _schemaPromise = applyWhatsappSchema()
-      .then(() => { _schemaReady = true; })
-      .finally(() => { _schemaPromise = null; });
-  }
-  return _schemaPromise;
-}
-
-async function applyWhatsappSchema() {
   await pool.query(`CREATE TABLE IF NOT EXISTS api_instances (
     id SERIAL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
@@ -77,7 +65,7 @@ async function applyWhatsappSchema() {
       ALTER TABLE api_instances
       ADD CONSTRAINT api_instances_provider_instance_unique UNIQUE(provider, instance_id);
     END IF;
-  EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;`);
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS attendance_queues (
     id SERIAL PRIMARY KEY,
@@ -100,8 +88,7 @@ async function applyWhatsappSchema() {
     ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30),
     ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb,
     ADD COLUMN IF NOT EXISTS messages_config JSONB DEFAULT '{}'::jsonb,
-    ADD COLUMN IF NOT EXISTS server_status VARCHAR(40) DEFAULT 'pending',
-    ADD COLUMN IF NOT EXISTS history_days INT DEFAULT 30
+    ADD COLUMN IF NOT EXISTS server_status VARCHAR(40) DEFAULT 'pending'
   `);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS whatsapp_groups (
@@ -159,29 +146,7 @@ async function applyWhatsappSchema() {
     ADD COLUMN IF NOT EXISTS raw_payload JSONB DEFAULT '{}'::jsonb
   `).catch(() => {});
 
-  // Migration 007 (chat v68) auto-aplicada: deduplica conversas por telefone,
-  // cria a trava UNIQUE e o índice de busca de mensagens.
-  await pool.query(`DO $$
-  BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conrelid = 'conversations'::regclass
-        AND conname = 'conversations_phone_unique'
-    ) THEN
-      DELETE FROM conversations c1
-      USING conversations c2
-      WHERE c1.phone = c2.phone
-        AND c1.id < c2.id;
-
-      ALTER TABLE conversations ADD CONSTRAINT conversations_phone_unique UNIQUE (phone);
-    END IF;
-  EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;`).catch(err => {
-    console.error('[WHATSAPP SCHEMA] dedup conversas:', err.message);
-  });
-
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_msgs_conv_sent
-    ON chat_messages(conversation_id, sent_at DESC, id DESC)
-  `).catch(() => {});
+  _schemaReady = true;
 }
 
 async function getQueueFull(id) {
@@ -440,21 +405,11 @@ router.patch('/queues/:id', async (req, res) => {
 });
 
 router.delete('/queues/:id', async (req, res) => {
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    // Conversas existentes são preservadas, apenas desvinculadas da fila.
-    await client.query('UPDATE conversations SET queue_id=NULL WHERE queue_id=$1', [req.params.id]);
-    // Grupos e vínculos de usuários caem em cascata (FK ON DELETE CASCADE).
-    const { rowCount } = await client.query('DELETE FROM attendance_queues WHERE id=$1', [req.params.id]);
-    await client.query('COMMIT');
-    if (!rowCount) return res.status(404).json({ error: 'Fila não encontrada.' });
+    await pool.query('UPDATE attendance_queues SET is_active=false, updated_at=NOW() WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Erro ao excluir fila: ' + err.message });
-  } finally {
-    client.release();
+    res.status(500).json({ error: 'Erro ao desativar fila: ' + err.message });
   }
 });
 
@@ -699,10 +654,5 @@ router.get('/users', async (req, res) => {
     res.status(500).json({ error: 'Erro ao listar usuários: ' + err.message });
   }
 });
-
-// O schema é criado pelas migrations no boot (config/migrate.js). O middleware
-// desta rota ainda chama ensureWhatsappSchema() por requisição como rede de
-// segurança, então não é preciso disparar na subida — evita corrida com as
-// migrations e o aviso "relation does not exist" no primeiro boot.
 
 module.exports = router;

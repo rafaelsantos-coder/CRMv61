@@ -1,6 +1,6 @@
 {
   "name": "sistema-integrado-sulnet-v1-backend",
-  "version": "1.0.65",
+  "version": "1.0.68c",
   "description": "Sistema Integrado Sulnet V1 — Backend de Produção",
   "main": "src/server.js",
   "scripts": {

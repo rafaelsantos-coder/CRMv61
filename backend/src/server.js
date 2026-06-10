@@ -17,7 +17,6 @@ process.env.NODE_ENV       = process.env.NODE_ENV       || 'production';
 process.env.R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'sistema-integrado-sulnet-v1-docs';
 
 const { pool } = require('./config/db');
-const { runMigrations } = require('./config/migrate');
 const authRoutes      = require('./routes/auth');
 const usersRoutes     = require('./routes/users');
 const oppsRoutes      = require('./routes/opportunities');
@@ -60,8 +59,8 @@ app.use('/api/auth/login', rateLimit({
   message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' },
 }));
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ── Health check — SEMPRE responde 200, mesmo sem banco ───────────────────
 // Railway usa este endpoint para saber se o servidor está vivo
@@ -79,7 +78,7 @@ app.get('/health', async (req, res) => {
   res.status(200).json({
     ok: true,
     app: 'Sistema Integrado Sulnet V1',
-    version: 'v68b-prod',
+    version: 'v68c-final',
     db: dbStatus,
     dbOk,
     uptime: Math.floor(process.uptime()),
@@ -92,7 +91,7 @@ app.get('/api/config', (req, res) => {
     app: 'Sistema Integrado Sulnet V1',
     googleCalendarConfigured: !!process.env.GOOGLE_CALENDAR_CLIENT_ID,
     googleClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID || '',
-    version: 'v68b-prod',
+    version: 'v68c-final',
     dbConfigured: !!process.env.DATABASE_URL,
   });
 });
@@ -113,10 +112,8 @@ app.use('/webhook',          webhookRoutes);
 
 // ── Servir frontend ────────────────────────────────────────────────────────
 const publicDir = path.join(__dirname, '../public');
-// index.html nunca entra em cache — evita servir versão antiga do app após deploy
-app.use(express.static(publicDir, { maxAge: '1h', index: false }));
+app.use(express.static(publicDir, { maxAge: '1h' }));
 app.get('*', (req, res) => {
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
@@ -127,23 +124,11 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────
-async function start() {
-  // Aplica migrations pendentes antes de aceitar tráfego. Falha aqui não derruba
-  // o servidor — o healthcheck segue respondendo e as rotas têm verificação própria.
-  try {
-    await runMigrations();
-  } catch (err) {
-    console.error('⚠️  Erro ao rodar migrations no boot:', err.message);
-  }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Sulnet V1 v68b-prod rodando na porta ${PORT}`);
-    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
-    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
-    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
-  });
-}
-
-start();
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Sulnet V1 v68c-final rodando na porta ${PORT}`);
+  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
+  console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
+  console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
+});
 
 module.exports = app;
