@@ -65,6 +65,14 @@ app.use('/api/auth/login', rateLimit({
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+function requireQueueAdmin(req, res) {
+  if (!req.user || !['admin', 'gerencia'].includes(req.user.role)) {
+    res.status(403).json({ error: 'Acesso restrito a administradores/gerência.' });
+    return false;
+  }
+  return true;
+}
+
 // ── Health check — SEMPRE responde 200, mesmo sem banco ────────────────────
 app.get('/health', async (req, res) => {
   let dbStatus = 'disconnected';
@@ -108,6 +116,43 @@ app.use('/api/uploads', authMiddleware, uploadsRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/chat-admin', authMiddleware, chatAdminRoutes);
+
+app.patch('/api/whatsapp/queues/:id/active', authMiddleware, async (req, res) => {
+  try {
+    if (!requireQueueAdmin(req, res)) return;
+    const nextActive = req.body?.isActive === true || req.body?.isActive === 'true';
+    const { rows } = await pool.query(
+      'UPDATE attendance_queues SET is_active=$1, updated_at=NOW() WHERE id=$2 RETURNING id, is_active',
+      [nextActive, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Fila não encontrada.' });
+    res.json({ ok: true, queue: rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao alterar status da fila: ' + err.message });
+  }
+});
+
+app.delete('/api/whatsapp/queues/:id/hard', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    if (!requireQueueAdmin(req, res)) return;
+    await client.query('BEGIN');
+    await client.query('UPDATE conversations SET queue_id=NULL, updated_at=NOW() WHERE queue_id=$1', [req.params.id]).catch(() => {});
+    const { rows } = await client.query('DELETE FROM attendance_queues WHERE id=$1 RETURNING id', [req.params.id]);
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Fila não encontrada.' });
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true, deletedId: rows[0].id });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: 'Erro ao excluir fila: ' + err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.use('/api/whatsapp', authMiddleware, whatsappRoutes);
 // Webhooks externos sem JWT. Use token próprio quando configurado.
 app.use('/api/integrations/szchat', integrationsRoutes);
@@ -115,18 +160,37 @@ app.use('/webhook', webhookRoutes);
 
 function patchIndexHtml(html) {
   const oldActions = '<td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>';
-  const newActions = '<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(${q.id})">Editar</button><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Excluir</button></div></td>';
-  let patched = html.replace(oldActions, newActions);
+  const queueActions = '<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(${q.id})">Editar</button><button class="whats-mini-btn" onclick="toggleWhatsQueue(${q.id}, ${q.is_active ? \'false\' : \'true\'})">${q.is_active ? \'Desativar\' : \'Ativar\'}</button><button class="whats-mini-btn" onclick="hardDeleteWhatsQueue(${q.id})">Excluir</button></div></td>';
+  let patched = html.replace(oldActions, queueActions);
 
   if (!patched.includes('window.editWhatsQueue=')) {
     const marker = '  window.deleteWhatsQueue=async function(id){';
-    const editFn = `  window.editWhatsQueue=function(id){
+    const queueFns = `  window.editWhatsQueue=function(id){
     __whatsV68CState.expanded=id;
     __whatsV68CState.subtab='conexao';
     render();
     setTimeout(()=>document.querySelector('.whats-expand-panel')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+  }
+
+  window.toggleWhatsQueue=async function(id,nextActive){
+    if(!confirm((nextActive?'Ativar':'Desativar')+' esta fila?'))return;
+    try{
+      await whatsappApi('PATCH',\`/api/whatsapp/queues/\${id}/active\`,{isActive:nextActive});
+      toast(nextActive?'Fila ativada.':'Fila desativada.');
+      await loadWhatsV68C();
+    }catch(e){toast(e.message,'error')}
+  }
+
+  window.hardDeleteWhatsQueue=async function(id){
+    if(!confirm('Excluir esta fila definitivamente? Conversas vinculadas ficarão sem fila.'))return;
+    try{
+      await whatsappApi('DELETE',\`/api/whatsapp/queues/\${id}/hard\`);
+      if(String(__whatsV68CState.expanded)===String(id))__whatsV68CState.expanded=null;
+      toast('Fila excluída.');
+      await loadWhatsV68C();
+    }catch(e){toast(e.message,'error')}
   }`;
-    patched = patched.replace(marker, `${editFn}\n\n${marker}`);
+    patched = patched.replace(marker, `${queueFns}\n\n${marker}`);
   }
 
   return patched;
