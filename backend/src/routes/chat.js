@@ -59,14 +59,19 @@ router.get('/conversations', async (req, res) => {
              o.client_name AS opp_client_name,
              q.name  AS queue_name,
              ai.name AS api_instance_name,
-             (SELECT COALESCE(NULLIF(cm.text_content,''),
+             (SELECT COALESCE(
+                NULLIF(NULLIF(cm.text_content,''),'unsupported'),
                 CASE cm.msg_type
-                  WHEN 'image' THEN '🖼 Imagem'
-                  WHEN 'audio' THEN '🎵 Áudio'
-                  WHEN 'video' THEN '🎬 Vídeo'
+                  WHEN 'image'    THEN '🖼 Imagem'
+                  WHEN 'audio'    THEN '🎵 Áudio'
+                  WHEN 'video'    THEN '🎬 Vídeo'
                   WHEN 'document' THEN '📄 Documento'
-                  WHEN 'sticker' THEN '🌀 Figurinha'
-                  ELSE cm.msg_type END)
+                  WHEN 'sticker'  THEN '🌀 Figurinha'
+                  WHEN 'location' THEN '📍 Localização'
+                  WHEN 'contact'  THEN '👤 Contato'
+                  WHEN 'reaction' THEN '❤️ Reação'
+                  ELSE '💬 Mensagem'
+                END)
               FROM chat_messages cm
               WHERE cm.conversation_id = c.id
               ORDER BY cm.sent_at DESC, cm.id DESC LIMIT 1) AS last_message_preview
@@ -242,25 +247,6 @@ router.get('/conversations/:id/panel', async (req, res) => {
 });
 
 // ── MENSAGENS ─────────────────────────────────────────────────────────────
-router.get('/conversations/:id/messages', async (req, res) => {
-  try {
-    const { before, limit = 50 } = req.query;
-    let query = `
-      SELECT m.*, u.name AS sender_user_name
-      FROM chat_messages m
-      LEFT JOIN users u ON u.id = m.sender_id
-      WHERE m.conversation_id = $1
-    `;
-    const params = [req.params.id];
-    let p = 2;
-    if (before) { query += ` AND m.id < $${p++}`; params.push(before); }
-    query += ` ORDER BY m.sent_at DESC, m.id DESC LIMIT $${p}`;
-    params.push(Math.min(Number(limit), 100));
-    const { rows } = await pool.query(query, params);
-    res.json(rows.reverse());
-  } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens.' }); }
-});
-
 // Polling de novas mensagens + zera unread
 router.get('/conversations/:id/messages/new', async (req, res) => {
   try {
@@ -278,6 +264,41 @@ router.get('/conversations/:id/messages/new', async (req, res) => {
     }
     res.json({ messages: rows, lastId: rows.length ? rows[rows.length - 1].id : since });
   } catch (err) { res.status(500).json({ error: 'Erro ao buscar novas mensagens.' }); }
+});
+
+// Mensagens com histórico limitado por history_days da fila
+router.get('/conversations/:id/messages', async (req, res) => {
+  try {
+    const { before, limit = 60 } = req.query;
+
+    // Busca history_days da fila vinculada à conversa
+    const { rows: convRows } = await pool.query(
+      `SELECT c.queue_id FROM conversations c WHERE c.id = $1`, [req.params.id]
+    );
+    let historyDays = 30; // padrão
+    if (convRows[0]?.queue_id) {
+      const { rows: qRows } = await pool.query(
+        `SELECT COALESCE(history_days, 30) AS history_days FROM attendance_queues WHERE id = $1`,
+        [convRows[0].queue_id]
+      );
+      if (qRows[0]) historyDays = Number(qRows[0].history_days) || 30;
+    }
+
+    let query = `
+      SELECT m.*, u.name AS sender_user_name
+      FROM chat_messages m
+      LEFT JOIN users u ON u.id = m.sender_id
+      WHERE m.conversation_id = $1
+        AND m.sent_at >= NOW() - INTERVAL '${historyDays} days'
+    `;
+    const params = [req.params.id];
+    let p = 2;
+    if (before) { query += ` AND m.id < $${p++}`; params.push(before); }
+    query += ` ORDER BY m.sent_at DESC, m.id DESC LIMIT $${p}`;
+    params.push(Math.min(Number(limit), 120));
+    const { rows } = await pool.query(query, params);
+    res.json(rows.reverse());
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens.' }); }
 });
 
 // Envio de mensagem

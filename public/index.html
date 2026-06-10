@@ -478,7 +478,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     else{h['Authorization']='Bearer '+t.trim();}
     return h;
   }
-  // Exposta globalmente — módulos em outros escopos (ex.: Chat v67) também usam.
+  // Expostas globalmente — módulos em outros escopos (ex.: Chat operacional) também usam.
   window.getApiToken=getApiToken;
   window.buildAuthHeaders=buildAuthHeaders;
   const logo='data:image/jpeg;base64,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PPPPPPPPPvPP/PL3vPLf/HTnfL/HPLfvPfPHfP8Azzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzlutkr38KlMUuTqQCsKP57zzzzzzzzzzzzzzzzzzzzzzz01x7w2+yyxxwz238xx8//AM888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888/8QAPxEAAgECAgQLBAkEAgMAAAAAAQIDAAQREgUQMbEGExQhMzRBUVRycxUycZIgIjBAU2GCkcE1QlKBI4BghML/2gAIAQIBAT8A/wCufHwfip8wpXR/dYH4HH7VpY1ODOoP5mhNCSAJEJ+I1iaEvkEqZv8AHEY/eZ+gl8jbtXB3oJ/ON32un+vL6Q3mtH9etvUXVMHMMoT3shy/HCiG45yGxtyCEQNzg5Rhzd+NJmyrm24DH7Z7m3Q4PNGp/NgK5ZZ+Ji+cVyyz8TF84rlln4mL5xWdMmfMMuGObHmwrlln4mL5xUcscgxjdWGOGKnHVJNDFhxkqJjszECuWWniYvnFT9BL5G3auDvQT+cbqkuIIzhJMinDHBmArlln4mL5xXLLPxMXzihd2h2XEXzigQwxBBGskAYk4Cjd2o23EQ/UK5ZZ+Ji+cUt1aswVZ4yTsAYVJPBGQJJUU9zMBWm5I5LxWR1YcWOcHGrFlW8t2YgASDEmuWWfiYvnFI6OoZGDA7CDiKyrmzZRj3/baa0jJxptomIVffI7T9Ef0b/1P/jVwf6lJ6x3DVwj22v6/wCKXaKn6CXyNu1cHegn843Vwh65F6Q3n6FreT2sgaNyO9ew1bXC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';
@@ -1864,6 +1864,11 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         <div class="bot-help" style="margin-top:8px">
           URL da API gerada automaticamente: <code style="font-size:11px">https://api.z-api.io/instances/{ID}/token/{TOKEN}/send-text</code>
         </div>
+        <div class="whats-field" style="margin-top:12px;max-width:200px">
+          <label>Dias de histórico do chat</label>
+          <input id="wq-history-days" type="number" min="1" max="365" value="${d.history_days||30}" placeholder="30" style="font-family:monospace">
+          <small style="color:#888;font-size:11px">Quantos dias de mensagens o atendente visualiza (padrão: 30)</small>
+        </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
         <button class="btn btn-light" onclick="cancelCreateWhatsQueue()">Cancelar</button>
@@ -2000,13 +2005,48 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const distributionType=document.getElementById('wg-distribution')?.value||'round_robin';
     const maxPerAgent=Number(document.getElementById('wg-max')?.value||100);
     const users=[...document.querySelectorAll('[data-wg-user]:checked')].map(x=>({id:Number(x.value),roleInGroup:'atendente'}));
-    if(!name){toast('Informe o nome do grupo.','error');return}
-    if(!queueId){toast('Escolha uma fila.','error');return}
+    if(!name){toast('Informe o nome do grupo.','error');return;}
+    if(!queueId){toast('Escolha uma fila.','error');return;}
+    const editId=__whatsV62State.editingGroup?.id;
     try{
-      await whatsappApi('POST','/api/whatsapp/groups',{name,queueId,distributionType,maxPerAgent,users,isActive:true});
-      toast('Grupo salvo e vinculado ao chat.');
+      if(editId){
+        await whatsappApi('PATCH',`/api/whatsapp/groups/${editId}`,{name,queueId,distributionType,maxPerAgent,users,isActive:true});
+        toast('Grupo atualizado com sucesso.');
+      } else {
+        await whatsappApi('POST','/api/whatsapp/groups',{name,queueId,distributionType,maxPerAgent,users,isActive:true});
+        toast('Grupo criado e vinculado ao chat.');
+      }
+      __whatsV62State.editingGroup=null;
       await loadWhatsV62();
-    }catch(e){toast(e.message,'error')}
+    }catch(e){toast(e.message||'Erro ao salvar grupo.','error');}
+  }
+
+  window.editWhatsGroup=function(id){
+    const g=(__whatsV62State.groups||[]).find(x=>x.id===id);
+    if(!g) return;
+    __whatsV62State.editingGroup={
+      id: g.id,
+      name: g.name,
+      queue_id: g.queue_id,
+      distribution_type: g.distribution_type||'round_robin',
+      max_per_agent: g.max_per_agent||100,
+      users: g.users||[],
+    };
+    render();
+  }
+
+  window.cancelEditWhatsGroup=function(){
+    __whatsV62State.editingGroup=null;
+    render();
+  }
+
+  window.deleteWhatsGroup=async function(id){
+    if(!confirm('Desativar este grupo de atendimento?')) return;
+    try{
+      await whatsappApi('DELETE',`/api/whatsapp/groups/${id}`);
+      toast('Grupo desativado.');
+      await loadWhatsV62();
+    }catch(e){toast(e.message||'Erro ao desativar grupo.','error');}
   }
 
   function whatsGroupsV62(){
@@ -2020,21 +2060,47 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
           <button class="btn btn-primary" onclick="startCreateWhatsGroup()" ${queues.length?'':'disabled'}>+ Criar grupo</button>
         </div>
         ${queues.length?'' : '<div class="empty">Crie primeiro uma fila de WhatsApp para depois criar grupos de atendimento.</div>'}
-        ${groups.length?`<div class="group-list">${groups.map(g=>`<div class="group-item"><strong>${esc(g.name)}</strong><span>Fila: ${esc(g.queue_name||'não vinculada')}</span><span>Usuários: ${(g.users||[]).length}</span></div>`).join('')}</div>`:'<div class="empty">Nenhum grupo cadastrado.</div>'}
+        ${groups.length?`<div class="group-list">${groups.map(g=>`
+          <div class="group-item" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+            <div>
+              <strong>${esc(g.name)}</strong>
+              <span>Fila: ${esc(g.queue_name||'não vinculada')}</span>
+              <span>Usuários: ${(g.users||[]).length} · ${esc(g.distribution_type||'manual')}</span>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn btn-light" style="padding:4px 10px;font-size:11px" onclick="editWhatsGroup(${g.id})">✏️ Editar</button>
+              <button class="btn" style="padding:4px 10px;font-size:11px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca" onclick="deleteWhatsGroup(${g.id})">🗑️</button>
+            </div>
+          </div>`).join('')}</div>`:'<div class="empty">Nenhum grupo cadastrado.</div>'}
       </div>
       <div class="whats-card">
-        <div class="whats-title"><div><h3>Criar grupo</h3><p>Escolha a fila, usuários e regra de distribuição. Isso libera o chat para os vendedores selecionados.</p></div></div>
+        <div class="whats-title"><div>
+          <h3 id="wg-form-title">${__whatsV62State.editingGroup?.id?'Editar grupo':'Criar grupo'}</h3>
+          <p>Escolha a fila, usuários e regra de distribuição. Isso libera o chat para os vendedores selecionados.</p>
+        </div></div>
         <div class="whats-form-grid two">
-          <div class="whats-field"><label>Nome do grupo</label><input id="wg-name" placeholder="Ex: Comercial — Tráfego Pago"></div>
-          <div class="whats-field"><label>Fila WhatsApp vinculada</label><select id="wg-queue">${queues.length?queues.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join(''):'<option value="">Nenhuma fila cadastrada</option>'}</select></div>
-          <div class="whats-field"><label>Regra de distribuição</label><select id="wg-distribution"><option value="round_robin">Circular</option><option value="least_open">Menor fila</option><option value="manual">Manual</option><option value="first_available">Primeiro disponível</option></select></div>
-          <div class="whats-field"><label>Limite por atendente</label><input id="wg-max" value="100"></div>
+          <div class="whats-field"><label>Nome do grupo</label><input id="wg-name" value="${esc(__whatsV62State.editingGroup?.name||'')}" placeholder="Ex: Comercial — Tráfego Pago"></div>
+          <div class="whats-field"><label>Fila WhatsApp vinculada</label><select id="wg-queue">${queues.length?queues.map(q=>`<option value="${q.id}" ${__whatsV62State.editingGroup?.queue_id==q.id?'selected':''}>${esc(q.name)}</option>`).join(''):'<option value="">Nenhuma fila cadastrada</option>'}</select></div>
+          <div class="whats-field"><label>Regra de distribuição</label><select id="wg-distribution">
+            <option value="round_robin" ${(__whatsV62State.editingGroup?.distribution_type||'round_robin')==='round_robin'?'selected':''}>Circular</option>
+            <option value="least_open" ${(__whatsV62State.editingGroup?.distribution_type)==='least_open'?'selected':''}>Menor fila</option>
+            <option value="manual" ${(__whatsV62State.editingGroup?.distribution_type)==='manual'?'selected':''}>Manual</option>
+            <option value="first_available" ${(__whatsV62State.editingGroup?.distribution_type)==='first_available'?'selected':''}>Primeiro disponível</option>
+          </select></div>
+          <div class="whats-field"><label>Limite por atendente</label><input id="wg-max" value="${__whatsV62State.editingGroup?.max_per_agent||100}"></div>
         </div>
         <h4 style="margin:18px 0 10px">Usuários do grupo</h4>
         <div class="group-users">
-          ${users.length?users.map(u=>`<label class="group-user-check"><input type="checkbox" data-wg-user value="${u.id}"> ${esc(u.name)} <small>(${esc(u.role)})</small></label>`).join(''):'<div class="empty">Nenhum usuário ativo encontrado.</div>'}
+          ${users.length?users.map(u=>{
+            const editUsers=__whatsV62State.editingGroup?.users||[];
+            const isChecked=editUsers.some(eu=>(typeof eu==='object'?eu.id:eu)==u.id);
+            return `<label class="group-user-check"><input type="checkbox" data-wg-user value="${u.id}" ${isChecked?'checked':''}> ${esc(u.name)} <small>(${esc(u.role)})</small></label>`;
+          }).join(''):'<div class="empty">Nenhum usuário ativo encontrado.</div>'}
         </div>
-        <div style="text-align:right;margin-top:20px"><button class="whats-action-save" onclick="saveWhatsGroup()" ${queues.length?'':'disabled'}>Salvar grupo</button></div>
+        <div style="text-align:right;margin-top:20px;display:flex;gap:8px;justify-content:flex-end">
+          ${__whatsV62State.editingGroup?.id?`<button class="btn btn-light" onclick="cancelEditWhatsGroup()">Cancelar</button>`:''}
+          <button class="whats-action-save" onclick="saveWhatsGroup()" ${queues.length?'':'disabled'}>${__whatsV62State.editingGroup?.id?'💾 Salvar alterações':'Salvar grupo'}</button>
+        </div>
       </div>
     </div>`;
   }
@@ -3760,641 +3826,657 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 })();
 
 
+
 // ══════════════════════════════════════════════════════════════════════════════
-// MÓDULO CHAT v67 — WhatsApp Integrado
-// Transferência, Painel Lateral, Notificação Sonora, Badge, Round-Robin
+// MÓDULO CHAT v68 — Operacional WhatsApp
+// Layout fullscreen, painel lateral, transferência, som, badge
 // ══════════════════════════════════════════════════════════════════════════════
 (function(){
+'use strict';
 
-// ── Estado ─────────────────────────────────────────────────────────────────
-const CS = window.chatState67 = {
-  conversations:[], filtered:[], selected:null,
-  messages:[], lastMsgId:0, panelData:null,
-  polling:null, pollUnread:null,
-  attach:null, recorder:null, recChunks:[], recStream:null, recTimer:null, recStarted:0,
-  queues:[], users:[],
-  notifSound: null, lastUnread:0,
+// ── Estado ──────────────────────────────────────────────────────────────────
+const CS = window._cs68 = {
+  convs:[], filtered:[], selId:null,
+  msgs:[], lastId:0, panelData:null,
+  pollMsgs:null, pollUnread:null,
+  attach:null,
+  rec:null, recChunks:[], recStream:null, recTimer:null, recStart:0,
+  queues:[], users:[], lastUnread:0,
+  user: null,
 };
 
-const STATUS_ICONS = {PENDING:'🕐',SENT:'✓',RECEIVED:'✓✓',READ:'✓✓',PLAYED:'✓✓'};
-const STATUS_BLUE  = ['READ','PLAYED'];
+const ST = {PENDING:'🕐',SENT:'✓',RECEIVED:'✓✓',READ:'✓✓',PLAYED:'✓✓'};
+const ST_BLUE = ['READ','PLAYED'];
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtTime(d){ d=new Date(d); return pad(d.getHours())+':'+pad(d.getMinutes()); }
 
-// ── API ─────────────────────────────────────────────────────────────────────
-function authHeaders67(){
-  if(typeof window.buildAuthHeaders==='function') return window.buildAuthHeaders();
-  const t=sessionStorage.getItem('sulnet_jwt')||localStorage.getItem('sulnet_jwt')||sessionStorage.getItem('sulnet_integrado_session')||localStorage.getItem('sulnet_integrado_session')||'';
-  const h={'Content-Type':'application/json'};
-  if(!t) return h;
-  if(/^\d+$/.test(String(t).trim())){h['x-user-id']=String(t).trim();}
-  else{h['Authorization']='Bearer '+t.trim();}
-  return h;
-}
-
-function chatApi67(method, path, body){
+// ── API ──────────────────────────────────────────────────────────────────────
+function api(method, path, body){
   return fetch(path,{
     method,
-    headers: authHeaders67(),
+    headers: typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'},
     body: body ? JSON.stringify(body) : undefined,
-  }).then(r=>{
-    if(!r.ok) return r.json().then(d=>{ throw new Error(d?.error||'Erro HTTP '+r.status); }).catch(e=>{ throw e; });
-    return r.json().catch(()=>null);
-  }).catch(err=>{ console.warn('[Chat67]',method,path,err.message); return null; });
+  }).then(async r=>{
+    const d = await r.json().catch(()=>null);
+    if(!r.ok) throw new Error(d?.error||'Erro '+r.status);
+    return d;
+  }).catch(e=>{ console.warn('[Chat68]',method,path,e.message); return null; });
 }
 
-// ── Som de notificação ──────────────────────────────────────────────────────
-function playNotifSound(){
+// ── Som ──────────────────────────────────────────────────────────────────────
+function beep(){
   try{
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type='sine'; osc.frequency.setValueAtTime(880, ctx.currentTime);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.4);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.4);
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type='sine'; o.frequency.value=880;
+    g.gain.setValueAtTime(0.25,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35);
+    o.start(); o.stop(ctx.currentTime+0.35);
   }catch(e){}
 }
 
-// ── Render principal ────────────────────────────────────────────────────────
-window.renderChat = function(user, container){
-  if(CS.polling)    { clearInterval(CS.polling);    CS.polling=null; }
-  if(CS.pollUnread) { clearInterval(CS.pollUnread); CS.pollUnread=null; }
-  CS.selected=null; CS.lastMsgId=0; CS.panelData=null;
-  container.innerHTML = chatHtml67();
-  bindChatEvents67(user);
-  loadConversations67(user);
-  startPollUnread67(user);
-};
+// ── CSS ──────────────────────────────────────────────────────────────────────
+const CSS = `
+<style id="chat68-css">
+#chat68{display:flex;height:calc(100vh - 62px);overflow:hidden;background:#0d1017;color:#c8d0e8;font-size:13px;font-family:inherit}
 
-// ── HTML estrutural ─────────────────────────────────────────────────────────
-function chatHtml67(){
-  return `
-<style>
-.c67{display:flex;height:calc(100vh - 62px);overflow:hidden;background:#0f1117;font-size:13px}
-.c67-left{width:280px;min-width:280px;background:#181c24;border-right:1px solid #252d40;display:flex;flex-direction:column}
-.c67-left-top{padding:12px;border-bottom:1px solid #252d40}
-.c67-left-top h3{font-size:13px;font-weight:700;color:#c9d1e8;margin:0 0 8px}
-.c67-search{width:100%;background:#1f2535;border:1px solid #2d3655;border-radius:7px;padding:7px 10px;font-size:12px;color:#c9d1e8;outline:none}
-.c67-search::placeholder{color:#4a5580}
-.c67-new-bar{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid #252d40}
-.c67-new-inp{flex:1;background:#1f2535;border:1px solid #2d3655;border-radius:7px;padding:7px 10px;font-size:12px;color:#c9d1e8;outline:none;font-family:monospace}
-.c67-new-inp::placeholder{color:#4a5580}
-.c67-new-btn{background:rgba(37,211,102,.1);color:#25d366;border:1px solid rgba(37,211,102,.25);border-radius:7px;padding:7px 10px;font-size:11px;cursor:pointer;white-space:nowrap}
-.c67-list{flex:1;overflow-y:auto}
-.c67-item{display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(37,45,64,.5)}
-.c67-item:hover{background:#1f2535}
-.c67-item.active{background:rgba(37,211,102,.07);border-left:3px solid #25d366}
-.c67-av{width:36px;height:36px;border-radius:50%;background:#252d40;border:1px solid #3a4560;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#25d366;flex-shrink:0;overflow:hidden}
-.c67-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.c67-meta{flex:1;min-width:0}
-.c67-name{font-size:12px;font-weight:600;color:#c9d1e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.c67-prev{font-size:11px;color:#4a5580;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.c67-badge{min-width:18px;height:18px;background:#25d366;color:#000;font-size:10px;font-weight:700;border-radius:100px;display:none;align-items:center;justify-content:center;padding:0 3px}
-.c67-badge.show{display:inline-flex}
-.c67-mid{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.c67-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#4a5580;gap:10px}
-.c67-empty span{font-size:40px;opacity:.2}
-.c67-head{height:52px;background:#181c24;border-bottom:1px solid #252d40;display:flex;align-items:center;gap:10px;padding:0 14px;flex-shrink:0}
-.c67-head-av{width:34px;height:34px;border-radius:50%;background:#252d40;border:1px solid #3a4560;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#25d366;overflow:hidden;flex-shrink:0}
-.c67-head-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.c67-head-info{flex:1;min-width:0}
-.c67-head-name{font-size:13px;font-weight:700;color:#c9d1e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.c67-head-sub{font-size:11px;color:#4a5580;font-family:monospace}
-.c67-head-acts{display:flex;gap:6px;flex-shrink:0}
-.c67-act-btn{background:transparent;border:1px solid #2d3655;border-radius:7px;padding:5px 10px;font-size:11px;color:#7b8ab8;cursor:pointer}
-.c67-act-btn:hover{background:#1f2535;color:#c9d1e8}
-.c67-act-btn.danger{border-color:rgba(239,68,68,.3);color:#f87171}
-.c67-act-btn.danger:hover{background:rgba(239,68,68,.08)}
-.c67-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:3px;background:#0f1117}
-.c67-day{text-align:center;font-size:10px;color:#4a5580;font-family:monospace;margin:6px 0;position:relative}
-.c67-day::before,.c67-day::after{content:'';position:absolute;top:50%;width:33%;height:1px;background:#252d40}
-.c67-day::before{left:0}.c67-day::after{right:0}
-.c67-grp{display:flex;flex-direction:column;gap:1px;margin-bottom:3px}
-.c67-grp.sent{align-items:flex-end}.c67-grp.recv{align-items:flex-start}
-.c67-bub{max-width:64%;padding:8px 12px;font-size:12px;line-height:1.55;word-break:break-word;border-radius:10px}
-.c67-bub.sent{background:#1a4731;border:1px solid #25583e;color:#d4f5e2;border-radius:10px 10px 3px 10px}
-.c67-bub.recv{background:#1f2535;border:1px solid #2d3655;color:#c9d1e8;border-radius:10px 10px 10px 3px}
-.c67-bub.system{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);color:#93c5fd;text-align:center;font-size:11px;border-radius:8px;max-width:80%;align-self:center}
-.c67-bub img.cmedia{max-width:200px;max-height:160px;border-radius:7px;display:block;cursor:pointer}
-.c67-bub audio{height:30px;max-width:200px}
-.c67-msg-meta{display:flex;gap:4px;font-size:10px;color:#4a5580;font-family:monospace;padding:0 2px}
-.c67-msg-meta.sent{justify-content:flex-end}
-.c67-st.READ,.c67-st.PLAYED{color:#60a5fa}
-.c67-inp-area{border-top:1px solid #252d40;background:#181c24;padding:8px 12px;flex-shrink:0}
-.c67-att-prev{display:none;align-items:center;gap:8px;padding:6px 10px;background:#1f2535;border:1px solid #2d3655;border-radius:7px;font-size:11px;color:#7b8ab8;margin-bottom:6px}
-.c67-att-prev.show{display:flex}
-.c67-att-nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.c67-att-rm{cursor:pointer;color:#4a5580;font-size:15px}.c67-att-rm:hover{color:#f87171}
-.c67-inp-row{display:flex;align-items:flex-end;gap:6px}
-.c67-att-wrap{position:relative}
-.c67-att-btn{width:34px;height:34px;border-radius:7px;background:#1f2535;border:1px solid #2d3655;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#7b8ab8;flex-shrink:0}
-.c67-att-btn:hover{background:#252d40;color:#c9d1e8}
-.c67-att-menu{position:absolute;bottom:calc(100% + 6px);left:0;background:#1f2535;border:1px solid #2d3655;border-radius:9px;padding:5px;display:none;flex-direction:column;gap:2px;min-width:150px;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.5)}
-.c67-att-menu.open{display:flex}
-.c67-att-opt{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#7b8ab8}
-.c67-att-opt:hover{background:#252d40;color:#c9d1e8}
-.c67-mic-btn{width:34px;height:34px;border-radius:7px;background:#1f2535;border:1px solid #2d3655;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#7b8ab8;flex-shrink:0}
-.c67-mic-btn:hover{background:#252d40}.c67-mic-btn.recording{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#f87171;animation:c67pulse 1s infinite}
-@keyframes c67pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.c67-ta{flex:1;background:#1f2535;border:1px solid #2d3655;border-radius:7px;padding:8px 11px;font-size:12px;color:#c9d1e8;resize:none;outline:none;min-height:34px;max-height:110px;line-height:1.55;font-family:inherit}
-.c67-ta:focus{border-color:rgba(37,211,102,.35)}.c67-ta::placeholder{color:#4a5580}
-.c67-send{width:34px;height:34px;background:#25d366;border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#000;font-size:16px;flex-shrink:0}
-.c67-send:hover{background:#1aad50}.c67-send:disabled{opacity:.35;cursor:not-allowed}
-/* Painel lateral */
-.c67-right{width:260px;min-width:260px;background:#181c24;border-left:1px solid #252d40;display:none;flex-direction:column;overflow-y:auto}
-.c67-right.show{display:flex}
-.c67-panel{padding:14px}
-.c67-panel h4{font-size:11px;font-weight:700;color:#4a5580;text-transform:uppercase;letter-spacing:.07em;margin:0 0 10px}
-.c67-panel-row{margin-bottom:8px}
-.c67-panel-label{font-size:10px;color:#4a5580;font-family:monospace;margin-bottom:2px}
-.c67-panel-val{font-size:12px;color:#c9d1e8}
-.c67-opp-card{background:#1f2535;border:1px solid #2d3655;border-radius:8px;padding:10px;margin-bottom:10px}
-.c67-opp-card h5{font-size:11px;font-weight:700;color:#25d366;margin:0 0 6px}
-.c67-opp-row{display:flex;justify-content:space-between;font-size:11px;color:#7b8ab8;margin-bottom:3px}
-.c67-opp-val{color:#c9d1e8;text-align:right;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.c67-opp-btn{display:block;width:100%;margin-top:8px;background:rgba(37,211,102,.1);color:#25d366;border:1px solid rgba(37,211,102,.25);border-radius:6px;padding:6px;font-size:11px;cursor:pointer;text-align:center}
-.c67-opp-btn:hover{background:rgba(37,211,102,.18)}
-.c67-note{background:#1f2535;border-left:2px solid #3b82f6;border-radius:0 6px 6px 0;padding:6px 8px;margin-bottom:5px;font-size:11px;color:#7b8ab8}
-.c67-note b{color:#c9d1e8;display:block;margin-bottom:2px}
-/* Modal transferência */
-.c67-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9998}
-.c67-modal-bg.open{display:flex}
-.c67-modal{background:#181c24;border:1px solid #2d3655;border-radius:12px;padding:22px;width:340px;max-width:92vw}
-.c67-modal h3{font-size:14px;font-weight:700;color:#c9d1e8;margin:0 0 16px}
-.c67-modal label{display:block;font-size:11px;font-weight:600;color:#7b8ab8;margin-bottom:5px}
-.c67-modal select,.c67-modal textarea{width:100%;background:#1f2535;border:1px solid #2d3655;border-radius:7px;padding:8px 10px;font-size:12px;color:#c9d1e8;outline:none;margin-bottom:12px}
-.c67-modal-btns{display:flex;gap:8px;justify-content:flex-end}
-.c67-modal-btns button{padding:8px 16px;border-radius:7px;font-size:12px;cursor:pointer}
-.c67-btn-ok{background:#25d366;color:#000;border:none}
-.c67-btn-ok:hover{background:#1aad50}
-.c67-btn-cancel{background:transparent;color:#7b8ab8;border:1px solid #3a4560}
-.c67-btn-cancel:hover{background:#1f2535;color:#c9d1e8}
-/* Lightbox */
-.c67-lb{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out}
-.c67-lb.open{display:flex}.c67-lb img{max-width:90vw;max-height:90vh;border-radius:8px}
-/* Rec bar */
-.c67-rec-bar{display:none;align-items:center;gap:8px;padding:5px 10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:7px;margin-bottom:6px;font-size:11px;color:#f87171}
-.c67-rec-bar.show{display:flex}
-</style>
+/* ── Sidebar ── */
+#c68-sidebar{width:290px;min-width:290px;background:#141820;border-right:1px solid #1e2538;display:flex;flex-direction:column;flex-shrink:0}
+#c68-sidebar-top{padding:10px 12px 8px;border-bottom:1px solid #1e2538}
+#c68-sidebar-top h3{font-size:12px;font-weight:700;color:#c8d0e8;margin:0 0 7px;display:flex;align-items:center;gap:6px}
+.c68-badge-menu{background:#25d366;color:#000;font-size:10px;font-weight:700;border-radius:100px;padding:1px 5px;min-width:16px;text-align:center}
+#c68-search{width:100%;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:6px 10px;font-size:12px;color:#c8d0e8;outline:none}
+#c68-search::placeholder{color:#4a5580}
+#c68-newbar{display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid #1e2538}
+#c68-newph{flex:1;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:6px 10px;font-size:12px;color:#c8d0e8;outline:none;font-family:monospace}
+#c68-newph::placeholder{color:#4a5580}
+.c68-newbtn{background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer}
+.c68-newbtn:hover{background:rgba(37,211,102,.2)}
+#c68-list{flex:1;overflow-y:auto}
+#c68-list::-webkit-scrollbar{width:4px}
+#c68-list::-webkit-scrollbar-thumb{background:#263050;border-radius:4px}
 
-<div class="c67" id="c67-root">
-  <!-- Lista -->
-  <div class="c67-left">
-    <div class="c67-left-top">
-      <h3>💬 Chat WhatsApp</h3>
-      <input class="c67-search" type="text" placeholder="Buscar..." id="c67-search" oninput="c67FilterList(this.value)">
+/* ── Item conversa ── */
+.c68-item{display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(30,37,56,.6);transition:background .1s}
+.c68-item:hover{background:#1b2130}
+.c68-item.sel{background:rgba(37,211,102,.07);border-left:3px solid #25d366;padding-left:9px}
+.c68-av{width:38px;height:38px;border-radius:50%;background:#1e2840;border:1px solid #263050;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#25d366;flex-shrink:0;overflow:hidden}
+.c68-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.c68-imeta{flex:1;min-width:0}
+.c68-iname{font-size:12px;font-weight:600;color:#c8d0e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c68-iprev{font-size:11px;color:#4a5580;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.c68-itime{font-size:10px;color:#4a5580;font-family:monospace;flex-shrink:0;align-self:flex-start;margin-top:2px}
+.c68-ibadge{min-width:18px;height:18px;background:#25d366;color:#000;font-size:10px;font-weight:700;border-radius:100px;display:none;align-items:center;justify-content:center;padding:0 3px;flex-shrink:0}
+.c68-ibadge.on{display:inline-flex}
+.c68-istatus{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.c68-istatus.open,.c68-istatus.in_attendance{background:#25d366}
+.c68-istatus.waiting,.c68-istatus.new{background:#f59e0b}
+.c68-istatus.transferred{background:#60a5fa}
+.c68-istatus.closed,.c68-istatus.lost{background:#4a5580}
+
+/* ── Centro ── */
+#c68-mid{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#c68-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#4a5580}
+#c68-empty span{font-size:44px;opacity:.15}
+
+/* ── Cabeçalho conversa ── */
+#c68-head{height:54px;background:#141820;border-bottom:1px solid #1e2538;display:flex;align-items:center;gap:10px;padding:0 14px;flex-shrink:0}
+.c68-hav{width:36px;height:36px;border-radius:50%;background:#1e2840;border:1px solid #263050;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#25d366;overflow:hidden;flex-shrink:0}
+.c68-hav img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.c68-hinfo{flex:1;min-width:0}
+.c68-hname{font-size:13px;font-weight:700;color:#c8d0e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c68-hsub{font-size:11px;color:#4a5580;font-family:monospace}
+.c68-hacts{display:flex;gap:6px;flex-shrink:0}
+.c68-hbtn{background:transparent;border:1px solid #263050;border-radius:7px;padding:5px 10px;font-size:11px;color:#7b8ab8;cursor:pointer;white-space:nowrap}
+.c68-hbtn:hover{background:#1b2130;color:#c8d0e8}
+.c68-hbtn.red{border-color:rgba(239,68,68,.3);color:#f87171}
+.c68-hbtn.red:hover{background:rgba(239,68,68,.08)}
+.c68-hbtn.green{border-color:rgba(37,211,102,.3);color:#25d366}
+.c68-hbtn.green:hover{background:rgba(37,211,102,.08)}
+.c68-poll{width:6px;height:6px;border-radius:50%;background:#25d366;display:inline-block;margin-left:4px;animation:c68blink 1.4s infinite}
+@keyframes c68blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── Mensagens ── */
+#c68-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:2px;background:#0d1017}
+#c68-msgs::-webkit-scrollbar{width:4px}
+#c68-msgs::-webkit-scrollbar-thumb{background:#1e2538;border-radius:4px}
+.c68-daydiv{text-align:center;font-size:10px;color:#4a5580;font-family:monospace;margin:6px 0;position:relative}
+.c68-daydiv::before,.c68-daydiv::after{content:'';position:absolute;top:50%;width:34%;height:1px;background:#1e2538}
+.c68-daydiv::before{left:0}.c68-daydiv::after{right:0}
+.c68-grp{display:flex;flex-direction:column;margin-bottom:2px}
+.c68-grp.sent{align-items:flex-end}.c68-grp.recv{align-items:flex-start}.c68-grp.sys{align-items:center}
+.c68-bub{max-width:65%;padding:8px 12px;font-size:12px;line-height:1.6;word-break:break-word;border-radius:10px}
+.c68-bub.sent{background:#173a28;border:1px solid #1e4d33;color:#d1f5e0;border-radius:10px 10px 2px 10px}
+.c68-bub.recv{background:#1b2130;border:1px solid #263050;color:#c8d0e8;border-radius:10px 10px 10px 2px}
+.c68-bub.sys{background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.15);color:#93c5fd;font-size:11px;text-align:center;border-radius:8px;max-width:75%;padding:6px 12px}
+.c68-bub img.cmimg{max-width:220px;max-height:180px;border-radius:8px;display:block;cursor:zoom-in}
+.c68-bub audio{height:32px;max-width:220px;display:block}
+.c68-bub a{color:#25d366;word-break:break-all}
+.c68-meta{display:flex;align-items:center;gap:4px;font-size:10px;color:#4a5580;padding:1px 2px;font-family:monospace}
+.c68-meta.sent{justify-content:flex-end}
+.c68-stblue{color:#60a5fa}
+.c68-caption{font-size:11px;color:#8899bb;margin-top:3px}
+
+/* ── Input ── */
+#c68-inp{border-top:1px solid #1e2538;background:#141820;padding:8px 12px;flex-shrink:0}
+.c68-recbar{display:none;align-items:center;gap:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:7px;padding:5px 10px;margin-bottom:6px;font-size:11px;color:#f87171}
+.c68-recbar.on{display:flex}
+.c68-attbar{display:none;align-items:center;gap:8px;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:5px 10px;margin-bottom:6px;font-size:11px;color:#7b8ab8}
+.c68-attbar.on{display:flex}
+.c68-attnm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c68-attrm{cursor:pointer;color:#4a5580;font-size:15px;line-height:1}.c68-attrm:hover{color:#f87171}
+.c68-inprow{display:flex;align-items:flex-end;gap:6px}
+.c68-attbtn{width:34px;height:34px;background:#1b2130;border:1px solid #263050;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#7b8ab8;flex-shrink:0}
+.c68-attbtn:hover{background:#1e2840;color:#c8d0e8}
+.c68-attmenu{position:absolute;bottom:calc(100% + 6px);left:0;background:#1b2130;border:1px solid #263050;border-radius:9px;padding:5px;display:none;flex-direction:column;gap:1px;min-width:160px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.c68-attmenu.on{display:flex}
+.c68-attopt{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#7b8ab8}
+.c68-attopt:hover{background:#1e2840;color:#c8d0e8}
+.c68-micbtn{width:34px;height:34px;background:#1b2130;border:1px solid #263050;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#7b8ab8;flex-shrink:0}
+.c68-micbtn:hover{background:#1e2840}.c68-micbtn.rec{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#f87171;animation:c68blink 1s infinite}
+.c68-ta{flex:1;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:8px 11px;font-size:12px;color:#c8d0e8;resize:none;outline:none;min-height:34px;max-height:110px;line-height:1.55;font-family:inherit}
+.c68-ta:focus{border-color:rgba(37,211,102,.35)}.c68-ta::placeholder{color:#4a5580}
+.c68-sndbtn{width:34px;height:34px;background:#25d366;border:none;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#000;font-size:17px;flex-shrink:0}
+.c68-sndbtn:hover{background:#1aad50}.c68-sndbtn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── Painel lateral ── */
+#c68-panel{width:256px;min-width:256px;background:#141820;border-left:1px solid #1e2538;display:none;flex-direction:column;overflow-y:auto;flex-shrink:0}
+#c68-panel.on{display:flex}
+#c68-panel::-webkit-scrollbar{width:4px}
+#c68-panel::-webkit-scrollbar-thumb{background:#263050;border-radius:4px}
+.c68-psec{padding:12px 14px;border-bottom:1px solid #1e2538}
+.c68-psec h4{font-size:10px;font-weight:700;color:#4a5580;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px}
+.c68-prow{margin-bottom:6px}
+.c68-plbl{font-size:10px;color:#4a5580;font-family:monospace;margin-bottom:1px}
+.c68-pval{font-size:12px;color:#c8d0e8}
+.c68-oppcard{background:#1b2130;border:1px solid #263050;border-radius:8px;padding:10px}
+.c68-oppcard h5{font-size:11px;font-weight:700;color:#25d366;margin:0 0 7px}
+.c68-opprow{display:flex;justify-content:space-between;font-size:11px;color:#7b8ab8;margin-bottom:3px}
+.c68-oppval{color:#c8d0e8;text-align:right;max-width:55%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c68-oppbtn{display:block;width:100%;margin-top:8px;background:rgba(37,211,102,.1);color:#25d366;border:1px solid rgba(37,211,102,.25);border-radius:6px;padding:6px;font-size:11px;cursor:pointer;text-align:center}
+.c68-oppbtn:hover{background:rgba(37,211,102,.18)}
+.c68-note{background:#1b2130;border-left:2px solid #3b82f6;border-radius:0 6px 6px 0;padding:6px 8px;margin-bottom:5px;font-size:11px;color:#7b8ab8}
+.c68-note b{color:#c8d0e8;display:block;margin-bottom:2px}
+.c68-nodata{font-size:11px;color:#4a5580;font-style:italic}
+
+/* ── Modal transferência ── */
+.c68-mbg{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:9990}
+.c68-mbg.on{display:flex}
+.c68-modal{background:#141820;border:1px solid #263050;border-radius:12px;padding:22px;width:340px;max-width:92vw}
+.c68-modal h3{font-size:14px;font-weight:700;color:#c8d0e8;margin:0 0 16px}
+.c68-modal label{display:block;font-size:11px;font-weight:600;color:#7b8ab8;margin-bottom:4px}
+.c68-modal select,.c68-modal textarea{width:100%;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:8px 10px;font-size:12px;color:#c8d0e8;outline:none;margin-bottom:10px}
+.c68-mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.c68-mbtns button{padding:8px 16px;border-radius:7px;font-size:12px;cursor:pointer}
+.c68-bok{background:#25d366;color:#000;border:none}.c68-bok:hover{background:#1aad50}
+.c68-bcancel{background:transparent;color:#7b8ab8;border:1px solid #263050}.c68-bcancel:hover{background:#1b2130;color:#c8d0e8}
+
+/* ── Lightbox ── */
+#c68-lb{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out}
+#c68-lb.on{display:flex}
+#c68-lb img{max-width:90vw;max-height:90vh;border-radius:8px}
+
+/* ── Wrap relativo para att menu ── */
+.c68-att-wrap-rel{position:relative}
+</style>`;
+
+// ── HTML ─────────────────────────────────────────────────────────────────────
+function buildHtml(){
+  return CSS + `
+<div id="chat68">
+
+  <!-- Sidebar -->
+  <div id="c68-sidebar">
+    <div id="c68-sidebar-top">
+      <h3>💬 Chat WhatsApp <span class="c68-badge-menu" id="c68-menu-badge" style="display:none">0</span></h3>
+      <input id="c68-search" type="text" placeholder="Buscar conversa ou número..." oninput="_c68filter(this.value)">
     </div>
-    <div class="c67-new-bar">
-      <input class="c67-new-inp" id="c67-new-ph" type="text" placeholder="5555999999999" maxlength="15" oninput="this.value=this.value.replace(/\\D/g,'')">
-      <button class="c67-new-btn" onclick="c67OpenNew()">✉️</button>
+    <div id="c68-newbar">
+      <input id="c68-newph" type="text" placeholder="5555999999999" maxlength="15" oninput="this.value=this.value.replace(/\\D/g,'')">
+      <button class="c68-newbtn" onclick="_c68openNew()">✉️ Abrir</button>
     </div>
-    <div class="c67-list" id="c67-list"><div style="padding:12px;font-size:11px;color:#4a5580;font-family:monospace">Carregando...</div></div>
+    <div id="c68-list"><div style="padding:12px;font-size:11px;color:#4a5580;font-family:monospace">Carregando...</div></div>
   </div>
 
   <!-- Centro -->
-  <div class="c67-mid" id="c67-mid">
-    <div class="c67-empty" id="c67-empty">
+  <div id="c68-mid">
+    <div id="c68-empty">
       <span>💬</span>
-      <p style="color:#7b8ab8;font-size:13px">Selecione uma conversa</p>
+      <p style="font-size:13px;color:#7b8ab8">Selecione uma conversa</p>
+      <small style="font-size:11px;color:#4a5580">ou abra um número novo ao lado</small>
     </div>
   </div>
 
-  <!-- Painel lateral -->
-  <div class="c67-right" id="c67-right"></div>
+  <!-- Painel -->
+  <div id="c68-panel"></div>
 </div>
 
 <!-- Modal transferência -->
-<div class="c67-modal-bg" id="c67-transfer-modal">
-  <div class="c67-modal">
+<div class="c68-mbg" id="c68-tmodal">
+  <div class="c68-modal">
     <h3>↔️ Transferir Conversa</h3>
-    <label>Transferir para fila</label>
-    <select id="c67-tr-queue"><option value="">— manter fila atual —</option></select>
-    <label>Transferir para usuário</label>
-    <select id="c67-tr-user"><option value="">— distribuição automática —</option></select>
+    <label>Fila de destino</label>
+    <select id="c68-tr-q"><option value="">— manter fila atual —</option></select>
+    <label>Atendente de destino</label>
+    <select id="c68-tr-u"><option value="">— distribuição automática —</option></select>
     <label>Motivo (opcional)</label>
-    <textarea id="c67-tr-reason" rows="2" placeholder="Ex: fora da área de atuação..."></textarea>
-    <div class="c67-modal-btns">
-      <button class="c67-btn-cancel" onclick="c67CloseTransfer()">Cancelar</button>
-      <button class="c67-btn-ok" onclick="c67DoTransfer()">Transferir</button>
+    <textarea id="c68-tr-r" rows="2" placeholder="Ex: fora da área..."></textarea>
+    <div class="c68-mbtns">
+      <button class="c68-bcancel" onclick="_c68closeTr()">Cancelar</button>
+      <button class="c68-bok" onclick="_c68doTr()">Transferir</button>
     </div>
   </div>
 </div>
 
 <!-- Lightbox -->
-<div class="c67-lb" id="c67-lb" onclick="this.classList.remove('open')">
-  <img id="c67-lb-img" src="" alt="">
-</div>`;
+<div id="c68-lb" onclick="this.classList.remove('on')"><img id="c68-lb-img" src="" alt=""></div>`;
 }
 
-// ── Bind eventos globais ────────────────────────────────────────────────────
-function bindChatEvents67(user){
-  window.c67FilterList = q => {
-    CS.filtered = CS.conversations.filter(c =>
-      (c.client_name||'').toLowerCase().includes(q.toLowerCase()) || (c.phone||'').includes(q)
-    );
-    renderList67(user);
+// ── Render ───────────────────────────────────────────────────────────────────
+window.renderChat = function(user, container){
+  CS.user = user;
+  ['pollMsgs','pollUnread'].forEach(k=>{ if(CS[k]){clearInterval(CS[k]);CS[k]=null;} });
+  CS.selId=null; CS.lastId=0; CS.panelData=null;
+  container.innerHTML = buildHtml();
+  _c68bindEvents(user);
+  _c68loadList(user);
+  _c68startPollUnread(user);
+};
+
+// ── Bind ─────────────────────────────────────────────────────────────────────
+function _c68bindEvents(user){
+  window._c68filter = q => {
+    const lq=q.toLowerCase();
+    CS.filtered = CS.convs.filter(c=>(c.client_name||'').toLowerCase().includes(lq)||(c.phone||'').includes(lq));
+    _c68renderList(user);
   };
-  window.c67OpenNew = async () => {
-    const inp = document.getElementById('c67-new-ph');
-    const ph = inp.value.replace(/\D/g,'');
-    if(ph.length < 10) return;
-    inp.value = '';
-    const r = await chatApi67('POST','/api/chat/conversations',{phone:ph});
+  window._c68openNew = async () => {
+    const el=document.getElementById('c68-newph');
+    const ph=(el.value||'').replace(/\D/g,'');
+    if(ph.length<10) return;
+    el.value='';
+    const r=await api('POST','/api/chat/conversations',{phone:ph});
     if(!r) return;
-    await loadConversations67(user);
-    openConv67(r.id, user);
+    await _c68loadList(user);
+    _c68openConv(r.id,user);
   };
-  window.c67SelectConv = id => openConv67(id, user);
-  window.c67Send      = () => doSend67();
-  window.c67AttachToggle = () => document.getElementById('c67-att-menu')?.classList.toggle('open');
-  window.c67PickFile  = type => {
-    window._c67attType = type;
-    const fi = document.getElementById('c67-file-inp');
-    fi.accept = type==='image'?'image/*':'.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
+  window._c68sel   = id => _c68openConv(id,user);
+  window._c68send  = () => _c68doSend();
+  window._c68attToggle = () => document.getElementById('c68-attmenu')?.classList.toggle('on');
+  window._c68pickFile  = type => {
+    window._c68ft=type;
+    const fi=document.getElementById('c68-fi');
+    fi.accept=type==='image'?'image/*':'.pdf,.doc,.docx,.xls,.xlsx,.pptx,.txt,.csv,.zip';
     fi.value=''; fi.click();
-    document.getElementById('c67-att-menu')?.classList.remove('open');
+    document.getElementById('c68-attmenu')?.classList.remove('on');
   };
-  window.c67OnFile = e => {
+  window._c68onFile = e => {
     const f=e.target.files[0]; if(!f) return;
-    if(f.size > 16*1024*1024){ alert('Arquivo muito grande. Máximo 16MB.'); return; }
+    if(f.size>16*1024*1024){alert('Máximo 16MB.');return;}
     const r=new FileReader();
     r.onload=ev=>{
-      CS.attach={type:window._c67attType,base64:ev.target.result,fileName:f.name,mimeType:f.type};
-      const prev=document.getElementById('c67-att-prev');
-      if(prev){ prev.classList.add('show'); document.getElementById('c67-att-nm').textContent=f.name; }
+      CS.attach={type:window._c68ft,base64:ev.target.result,fileName:f.name};
+      const bar=document.getElementById('c68-attbar');
+      const nm=document.getElementById('c68-attnm');
+      if(bar) bar.classList.add('on');
+      if(nm) nm.textContent=f.name;
     };
     r.readAsDataURL(f);
   };
-  window.c67RemoveAtt = () => {
+  window._c68rmAtt = () => {
     CS.attach=null;
-    document.getElementById('c67-att-prev')?.classList.remove('show');
-    document.getElementById('c67-file-inp') && (document.getElementById('c67-file-inp').value='');
+    document.getElementById('c68-attbar')?.classList.remove('on');
+    const fi=document.getElementById('c68-fi');
+    if(fi) fi.value='';
   };
-  window.c67MsgKey = e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); doSend67(); } };
-  window.c67AutoResize = el => { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; };
-  window.c67Lightbox = src => { document.getElementById('c67-lb-img').src=src; document.getElementById('c67-lb').classList.add('open'); };
-  window.c67OpenTransfer = () => {
-    if(!CS.selected) return;
-    // Preenche selects
-    const qSel = document.getElementById('c67-tr-queue');
-    const uSel = document.getElementById('c67-tr-user');
-    qSel.innerHTML = '<option value="">— manter fila atual —</option>' +
-      CS.queues.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join('');
-    uSel.innerHTML = '<option value="">— distribuição automática —</option>' +
-      CS.users.map(u=>`<option value="${u.id}">${esc(u.name)} (${u.role})</option>`).join('');
-    document.getElementById('c67-transfer-modal').classList.add('open');
+  window._c68taKey = e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_c68doSend();} };
+  window._c68taResize = el => { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; };
+  window._c68lb    = src => { document.getElementById('c68-lb-img').src=src; document.getElementById('c68-lb').classList.add('on'); };
+  window._c68openTr = () => {
+    if(!CS.selId) return;
+    const qsel=document.getElementById('c68-tr-q');
+    const usel=document.getElementById('c68-tr-u');
+    if(qsel) qsel.innerHTML='<option value="">— manter fila atual —</option>'+CS.queues.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join('');
+    if(usel) usel.innerHTML='<option value="">— distribuição automática —</option>'+CS.users.map(u=>`<option value="${u.id}">${esc(u.name)} (${u.role})</option>`).join('');
+    document.getElementById('c68-tmodal')?.classList.add('on');
   };
-  window.c67CloseTransfer = () => document.getElementById('c67-transfer-modal').classList.remove('open');
-  window.c67DoTransfer = async () => {
-    const toQueue = document.getElementById('c67-tr-queue').value;
-    const toUser  = document.getElementById('c67-tr-user').value;
-    const reason  = document.getElementById('c67-tr-reason').value.trim();
-    const r = await chatApi67('POST',`/api/chat/conversations/${CS.selected}/transfer`,{
-      toQueueId: toQueue ? Number(toQueue) : null,
-      toUserId:  toUser  ? Number(toUser)  : null,
-      reason: reason || null,
+  window._c68closeTr = () => document.getElementById('c68-tmodal')?.classList.remove('on');
+  window._c68doTr = async () => {
+    const q=document.getElementById('c68-tr-q')?.value;
+    const u=document.getElementById('c68-tr-u')?.value;
+    const r2=document.getElementById('c68-tr-r')?.value.trim();
+    const res=await api('POST',`/api/chat/conversations/${CS.selId}/transfer`,{
+      toQueueId:q?Number(q):null, toUserId:u?Number(u):null, reason:r2||null
     });
-    if(r?.ok){ c67CloseTransfer(); await loadConversations67(user); openConv67(CS.selected,user); }
+    if(res?.ok){ _c68closeTr(); await _c68loadList(user); _c68openConv(CS.selId,user); }
   };
-  window.c67CloseConv = async () => {
-    if(!CS.selected) return;
-    await chatApi67('PATCH',`/api/chat/conversations/${CS.selected}`,{status:'closed'});
-    CS.selected=null; stopPoll67();
-    document.getElementById('c67-mid').innerHTML = `<div class="c67-empty"><span>💬</span><p style="color:#7b8ab8">Conversa encerrada</p></div>`;
-    document.getElementById('c67-right').classList.remove('show');
-    await loadConversations67(user);
+  window._c68closeConv = async () => {
+    if(!CS.selId) return;
+    await api('PATCH',`/api/chat/conversations/${CS.selId}`,{status:'closed'});
+    CS.selId=null;
+    if(CS.pollMsgs){clearInterval(CS.pollMsgs);CS.pollMsgs=null;}
+    const mid=document.getElementById('c68-mid');
+    if(mid) mid.innerHTML='<div id="c68-empty"><span>💬</span><p style="font-size:13px;color:#7b8ab8">Conversa encerrada.</p></div>';
+    document.getElementById('c68-panel')?.classList.remove('on');
+    await _c68loadList(user);
   };
-  window.c67MicToggle = () => {
-    if(CS.recorder && CS.recorder.state==='recording') stopRec67();
-    else startRec67();
-  };
-  // Fechar attach menu ao clicar fora
+  window._c68togglePanel = () => document.getElementById('c68-panel')?.classList.toggle('on');
+  window._c68mic = () => CS.rec&&CS.rec.state==='recording' ? _c68stopRec() : _c68startRec();
+
+  // Fecha att menu ao clicar fora
   document.addEventListener('click', e=>{
-    const wrap=document.querySelector('.c67-att-wrap');
-    if(wrap && !wrap.contains(e.target)) document.getElementById('c67-att-menu')?.classList.remove('open');
-  },{capture:false});
+    const wrap=document.querySelector('.c68-att-wrap-rel');
+    if(wrap&&!wrap.contains(e.target)) document.getElementById('c68-attmenu')?.classList.remove('on');
+  });
 }
 
-// ── Carregar lista ──────────────────────────────────────────────────────────
-async function loadConversations67(user){
-  const data = await chatApi67('GET','/api/chat/conversations');
+// ── Lista de conversas ────────────────────────────────────────────────────────
+async function _c68loadList(user){
+  const data=await api('GET','/api/chat/conversations');
   if(!data) return;
-  CS.conversations = data;
-  CS.filtered = data;
-  renderList67(user);
-  // Carrega filas e usuários para modal de transferência
-  const [queues, users] = await Promise.all([
-    chatApi67('GET','/api/chat/queues-available'),
-    chatApi67('GET','/api/whatsapp/users'),
+  CS.convs=data; CS.filtered=data;
+  _c68renderList(user);
+  // carrega filas e usuários para modal
+  const [q,u]=await Promise.all([
+    api('GET','/api/chat/queues-available'),
+    api('GET','/api/whatsapp/users'),
   ]);
-  CS.queues = queues || [];
-  CS.users  = users  || [];
+  CS.queues=q||[]; CS.users=u||[];
 }
 
-function renderList67(user){
-  const list = document.getElementById('c67-list');
-  if(!list) return;
-  const convs = CS.filtered;
-  if(!convs.length){
-    list.innerHTML='<div style="padding:12px;font-size:11px;color:#4a5580;font-family:monospace">Nenhuma conversa.</div>';
+function _c68renderList(user){
+  const el=document.getElementById('c68-list');
+  if(!el) return;
+  if(!CS.filtered.length){
+    el.innerHTML='<div style="padding:12px;font-size:11px;color:#4a5580;font-family:monospace">Nenhuma conversa.</div>';
     return;
   }
-  list.innerHTML = convs.map(c=>{
-    const init = (c.client_name||c.phone||'?').slice(0,2).toUpperCase();
-    const photo = c.client_photo_url ? `<img src="${esc(c.client_photo_url)}" alt="" onerror="this.parentElement.textContent='${init}'">` : init;
-    const active = c.id === CS.selected;
-    const badge = c.unread_count > 0 ? `<span class="c67-badge show">${c.unread_count}</span>` : '';
-    const prev = esc(c.last_message_preview || '+'+c.phone);
-    return `<div class="c67-item${active?' active':''}" onclick="c67SelectConv(${c.id})">
-      <div class="c67-av">${photo}</div>
-      <div class="c67-meta">
-        <div class="c67-name">${esc(c.client_name||c.phone)}</div>
-        <div class="c67-prev">${prev}</div>
+  el.innerHTML=CS.filtered.map(c=>{
+    const init=(c.client_name||c.phone||'?').slice(0,2).toUpperCase();
+    const av=c.client_photo_url?`<img src="${esc(c.client_photo_url)}" alt="" onerror="this.parentElement.textContent='${init}'">`:`${init}`;
+    const sel=c.id===CS.selId;
+    const badge=c.unread_count>0?`<span class="c68-ibadge on">${c.unread_count}</span>`:'';
+    const st=c.status||'open';
+    const prev=esc(c.last_message_preview||'+'+c.phone);
+    const ts=c.last_message_at?fmtTime(c.last_message_at):'';
+    return `<div class="c68-item${sel?' sel':''}" onclick="_c68sel(${c.id})">
+      <div class="c68-av">${av}</div>
+      <div class="c68-imeta">
+        <div class="c68-iname">${esc(c.client_name||c.phone)}</div>
+        <div class="c68-iprev">${prev}</div>
       </div>
-      ${badge}
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <span class="c68-itime">${ts}</span>
+        ${badge}
+        <span class="c68-istatus ${st}"></span>
+      </div>
     </div>`;
   }).join('');
 }
 
-// ── Abre conversa ──────────────────────────────────────────────────────────
-async function openConv67(id, user){
-  CS.selected = id;
-  CS.lastMsgId = 0;
-  stopPoll67();
+// ── Abre conversa ─────────────────────────────────────────────────────────────
+async function _c68openConv(id,user){
+  CS.selId=id; CS.lastId=0;
+  if(CS.pollMsgs){clearInterval(CS.pollMsgs);CS.pollMsgs=null;}
 
-  const conv = CS.conversations.find(c=>c.id===id);
-  if(!conv) return;
+  const c=CS.convs.find(x=>x.id===id);
+  if(!c) return;
 
-  renderList67(user);
+  _c68renderList(user);
 
-  const mid = document.getElementById('c67-mid');
+  const mid=document.getElementById('c68-mid');
   if(!mid) return;
 
-  const init = (conv.client_name||conv.phone||'?').slice(0,2).toUpperCase();
-  const photo = conv.client_photo_url ? `<img src="${esc(conv.client_photo_url)}" alt="" onerror="this.parentElement.textContent='${init}'">` : init;
+  const init=(c.client_name||c.phone||'?').slice(0,2).toUpperCase();
+  const av=c.client_photo_url?`<img src="${esc(c.client_photo_url)}" alt="" onerror="this.parentElement.textContent='${init}'">`:`${init}`;
+  const qinfo=c.queue_name?` · <span style="color:#f59e0b">${esc(c.queue_name)}</span>`:'';
+  const uinfo=c.assigned_user_name?` · ${esc(c.assigned_user_name)}`:'';
 
-  mid.innerHTML = `
-    <div class="c67-head">
-      <div class="c67-head-av">${photo}</div>
-      <div class="c67-head-info">
-        <div class="c67-head-name">${esc(conv.client_name||conv.phone)}</div>
-        <div class="c67-head-sub">+${esc(conv.phone)}${conv.queue_name?' · '+esc(conv.queue_name):''}</div>
+  mid.innerHTML=`
+    <div id="c68-head">
+      <div class="c68-hav">${av}</div>
+      <div class="c68-hinfo">
+        <div class="c68-hname">${esc(c.client_name||c.phone)}</div>
+        <div class="c68-hsub">+${esc(c.phone)}${qinfo}${uinfo} <span class="c68-poll" id="c68-poll"></span></div>
       </div>
-      <div class="c67-head-acts">
-        <button class="c67-act-btn" onclick="c67OpenTransfer()">↔️ Transferir</button>
-        <button class="c67-act-btn" onclick="c67TogglePanel()">👤 Painel</button>
-        <button class="c67-act-btn danger" onclick="c67CloseConv()">✕ Encerrar</button>
+      <div class="c68-hacts">
+        <button class="c68-hbtn" onclick="_c68openTr()">↔️ Transferir</button>
+        <button class="c68-hbtn" onclick="_c68togglePanel()">👤 Painel</button>
+        <button class="c68-hbtn red" onclick="_c68closeConv()">✕ Encerrar</button>
       </div>
     </div>
-    <div class="c67-msgs" id="c67-msgs"></div>
-    <div class="c67-inp-area">
-      <div class="c67-rec-bar" id="c67-rec-bar">🔴 <span id="c67-rec-time">0:00</span> Gravando... <button onclick="c67MicToggle()" style="margin-left:auto;background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer">⏹ Parar</button></div>
-      <div class="c67-att-prev" id="c67-att-prev">
-        <span class="c67-att-nm" id="c67-att-nm">—</span>
-        <span class="c67-att-rm" onclick="c67RemoveAtt()">✕</span>
+    <div id="c68-msgs"></div>
+    <div id="c68-inp">
+      <div class="c68-recbar" id="c68-recbar">🔴 <span id="c68-rectm">0:00</span> Gravando…
+        <button onclick="_c68mic()" style="margin-left:auto;background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer">⏹ Parar</button>
       </div>
-      <div class="c67-inp-row">
-        <div class="c67-att-wrap">
-          <button class="c67-att-btn" onclick="c67AttachToggle()">📎</button>
-          <div class="c67-att-menu" id="c67-att-menu">
-            <div class="c67-att-opt" onclick="c67PickFile('image')">🖼️ Imagem</div>
-            <div class="c67-att-opt" onclick="c67PickFile('document')">📄 Documento</div>
+      <div class="c68-attbar" id="c68-attbar">
+        📎 <span class="c68-attnm" id="c68-attnm">—</span>
+        <span class="c68-attrm" onclick="_c68rmAtt()">✕</span>
+      </div>
+      <div class="c68-inprow">
+        <div class="c68-att-wrap-rel">
+          <button class="c68-attbtn" onclick="_c68attToggle()">📎</button>
+          <div class="c68-attmenu" id="c68-attmenu">
+            <div class="c68-attopt" onclick="_c68pickFile('image')">🖼️ Imagem</div>
+            <div class="c68-attopt" onclick="_c68pickFile('document')">📄 Documento</div>
           </div>
-          <input type="file" id="c67-file-inp" style="display:none" onchange="c67OnFile(event)">
+          <input type="file" id="c68-fi" style="display:none" onchange="_c68onFile(event)">
         </div>
-        <button class="c67-mic-btn" id="c67-mic" onclick="c67MicToggle()" title="Gravar áudio">🎤</button>
-        <textarea class="c67-ta" id="c67-ta" rows="1" placeholder="Mensagem… (Enter envia)"
-          onkeydown="c67MsgKey(event)" oninput="c67AutoResize(this)"></textarea>
-        <button class="c67-send" id="c67-send" onclick="c67Send()">➤</button>
+        <button class="c68-micbtn" id="c68-mic" onclick="_c68mic()" title="Gravar áudio">🎤</button>
+        <textarea class="c68-ta" id="c68-ta" rows="1" placeholder="Mensagem… (Enter envia)"
+          onkeydown="_c68taKey(event)" oninput="_c68taResize(this)"></textarea>
+        <button class="c68-sndbtn" id="c68-snd" onclick="_c68send()">➤</button>
       </div>
     </div>`;
 
-  // Carrega histórico de mensagens
-  const msgs = await chatApi67('GET',`/api/chat/conversations/${id}/messages`);
+  // Histórico
+  const msgs=await api('GET',`/api/chat/conversations/${id}/messages`);
   if(msgs?.length){
-    CS.messages = msgs;
-    CS.lastMsgId = msgs[msgs.length-1].id;
-    const box = document.getElementById('c67-msgs');
-    if(box){ msgs.forEach(m=>box.appendChild(buildMsgEl67(m))); scrollMsgs67(); }
+    CS.msgs=msgs; CS.lastId=msgs[msgs.length-1].id;
+    const box=document.getElementById('c68-msgs');
+    if(box){ msgs.forEach(m=>box.appendChild(_c68buildMsg(m))); _c68scroll(); }
   }
 
-  // Carrega painel lateral
-  loadPanel67(id);
+  // Painel
+  _c68loadPanel(id);
 
-  // Inicia polling
-  startPoll67(id, user);
+  // Polling
+  CS.pollMsgs=setInterval(()=>_c68pollMsgs(id,user),2500);
 
-  document.getElementById('c67-ta')?.focus();
+  document.getElementById('c68-ta')?.focus();
 }
 
-// ── Painel lateral ──────────────────────────────────────────────────────────
-async function loadPanel67(id){
-  const data = await chatApi67('GET',`/api/chat/conversations/${id}/panel`);
+// ── Painel lateral ────────────────────────────────────────────────────────────
+async function _c68loadPanel(id){
+  const data=await api('GET',`/api/chat/conversations/${id}/panel`);
   if(!data) return;
-  CS.panelData = data;
-  renderPanel67(data);
+  CS.panelData=data;
+  _c68renderPanel(data);
 }
 
-function renderPanel67(data){
-  const right = document.getElementById('c67-right');
-  if(!right) return;
-  const { conversation: conv, opportunity: opp, notes } = data;
+function _c68renderPanel(data){
+  const el=document.getElementById('c68-panel');
+  if(!el) return;
+  const {conversation:c,opportunity:opp,notes}=data;
 
-  let oppHtml = '';
-  if(opp){
-    oppHtml = `
-      <div class="c67-opp-card">
-        <h5>📋 Oportunidade</h5>
-        <div class="c67-opp-row"><span>Status</span><span class="c67-opp-val">${esc(opp.status)}</span></div>
-        <div class="c67-opp-row"><span>Funil</span><span class="c67-opp-val">${esc(opp.funnel_name||'—')}</span></div>
-        <div class="c67-opp-row"><span>Etapa</span><span class="c67-opp-val">${esc(opp.stage_name||'—')}</span></div>
-        <div class="c67-opp-row"><span>Produto</span><span class="c67-opp-val">${esc(opp.product_name||opp.product_category||'—')}</span></div>
-        <div class="c67-opp-row"><span>Valor</span><span class="c67-opp-val" style="color:#25d366">R$ ${Number(opp.monthly_value||0).toFixed(2)}</span></div>
-        <div class="c67-opp-row"><span>Vendedor</span><span class="c67-opp-val">${esc(opp.assigned_user_name||'—')}</span></div>
-      </div>`;
-  } else {
-    oppHtml = `<div style="font-size:11px;color:#4a5580;padding:6px 0">Sem oportunidade vinculada.</div>`;
-  }
+  const oppHtml=opp?`
+    <div class="c68-oppcard">
+      <h5>📋 Oportunidade</h5>
+      <div class="c68-opprow"><span>Status</span><span class="c68-oppval">${esc(opp.status)}</span></div>
+      <div class="c68-opprow"><span>Funil</span><span class="c68-oppval">${esc(opp.funnel_name||'—')}</span></div>
+      <div class="c68-opprow"><span>Etapa</span><span class="c68-oppval">${esc(opp.stage_name||'—')}</span></div>
+      <div class="c68-opprow"><span>Produto</span><span class="c68-oppval">${esc(opp.product_name||opp.product_category||'—')}</span></div>
+      <div class="c68-opprow"><span>Valor</span><span class="c68-oppval" style="color:#25d366">R$ ${Number(opp.monthly_value||0).toFixed(2)}</span></div>
+      <div class="c68-opprow"><span>Vendedor</span><span class="c68-oppval">${esc(opp.assigned_user_name||'—')}</span></div>
+    </div>`
+  :'<p class="c68-nodata">Sem oportunidade vinculada.</p>';
 
-  let notesHtml = '';
-  if(notes?.length){
-    notesHtml = notes.map(n=>`
-      <div class="c67-note">
-        <b>${esc(n.channel||'Contato')} — ${esc(n.result||'')}</b>
-        ${esc(n.description||'')}
-      </div>`).join('');
-  }
+  const notesHtml=notes?.length?notes.map(n=>`
+    <div class="c68-note">
+      <b>${esc(n.channel||'Contato')}${n.result?' — '+esc(n.result):''}</b>
+      ${esc(n.description||'')}
+    </div>`).join(''):'';
 
-  right.innerHTML = `
-    <div class="c67-panel">
+  el.innerHTML=`
+    <div class="c68-psec">
       <h4>👤 Cliente</h4>
-      <div class="c67-panel-row">
-        <div class="c67-panel-label">Nome</div>
-        <div class="c67-panel-val">${esc(conv.client_name||'—')}</div>
-      </div>
-      <div class="c67-panel-row">
-        <div class="c67-panel-label">Telefone</div>
-        <div class="c67-panel-val" style="font-family:monospace">+${esc(conv.phone)}</div>
-      </div>
-      <div class="c67-panel-row">
-        <div class="c67-panel-label">Fila</div>
-        <div class="c67-panel-val">${esc(conv.queue_name||'—')}</div>
-      </div>
-      <div style="border-top:1px solid #252d40;margin:10px 0"></div>
+      <div class="c68-prow"><div class="c68-plbl">Nome</div><div class="c68-pval">${esc(c.client_name||'—')}</div></div>
+      <div class="c68-prow"><div class="c68-plbl">Telefone</div><div class="c68-pval" style="font-family:monospace">+${esc(c.phone)}</div></div>
+      <div class="c68-prow"><div class="c68-plbl">Fila</div><div class="c68-pval">${esc(c.queue_name||'—')}</div></div>
+      <div class="c68-prow"><div class="c68-plbl">Status</div><div class="c68-pval">${esc(c.status||'open')}</div></div>
+    </div>
+    <div class="c68-psec">
       <h4>📋 CRM</h4>
       ${oppHtml}
-      ${notesHtml ? `<div style="border-top:1px solid #252d40;margin:10px 0"></div><h4>📝 Últimas anotações</h4>${notesHtml}` : ''}
-    </div>`;
+    </div>
+    ${notesHtml?`<div class="c68-psec"><h4>📝 Anotações</h4>${notesHtml}</div>`:''}`;
 }
 
-window.c67TogglePanel = () => {
-  const right = document.getElementById('c67-right');
-  if(!right) return;
-  right.classList.toggle('show');
-};
-
-// ── Polling ─────────────────────────────────────────────────────────────────
-function startPoll67(id, user){
-  stopPoll67();
-  CS.polling = setInterval(()=>pollMsgs67(id, user), 2500);
-  pollMsgs67(id, user);
-}
-
-function stopPoll67(){
-  if(CS.polling){ clearInterval(CS.polling); CS.polling=null; }
-}
-
-async function pollMsgs67(id, user){
-  if(CS.selected !== id){ stopPoll67(); return; }
-  const data = await chatApi67('GET',`/api/chat/conversations/${id}/messages/new?since=${CS.lastMsgId}`);
+// ── Polling de mensagens ──────────────────────────────────────────────────────
+async function _c68pollMsgs(id,user){
+  if(CS.selId!==id){clearInterval(CS.pollMsgs);CS.pollMsgs=null;return;}
+  const data=await api('GET',`/api/chat/conversations/${id}/messages/new?since=${CS.lastId}`);
   if(!data?.messages?.length) return;
-  CS.lastMsgId = data.lastId;
-  const box = document.getElementById('c67-msgs');
-  const newRecv = data.messages.filter(m=>!m.from_me);
-  data.messages.forEach(m=>{ if(box) box.appendChild(buildMsgEl67(m)); });
-  scrollMsgs67();
-  if(newRecv.length > 0) playNotifSound();
-  await loadConversations67(user);
+  CS.lastId=data.lastId;
+  const box=document.getElementById('c68-msgs');
+  const newRecv=data.messages.filter(m=>!m.from_me);
+  data.messages.forEach(m=>{
+    if(box && !document.querySelector(`[data-msgid="${m.id}"]`)){
+      const el=_c68buildMsg(m);
+      el.dataset.msgid=m.id;
+      box.appendChild(el);
+    }
+  });
+  _c68scroll();
+  if(newRecv.length) beep();
+  await _c68loadList(user);
 }
 
-// Polling de unread para badge do menu
-function startPollUnread67(user){
-  if(CS.pollUnread) clearInterval(CS.pollUnread);
-  CS.pollUnread = setInterval(async()=>{
-    const data = await chatApi67('GET','/api/chat/unread');
-    if(!data) return;
-    const total = Number(data.total||0);
-    // Atualiza badge no nav se existir
-    const badge = document.querySelector('[data-module="chat"] .nav-unread-badge');
-    if(badge){ badge.textContent=total; badge.style.display=total>0?'inline-flex':'none'; }
-    // Toca som se unread aumentou e não está na tela de chat
-    if(total > CS.lastUnread && window.__currentModule !== 'chat') playNotifSound();
-    CS.lastUnread = total;
-  }, 8000);
+// ── Polling unread (badge menu) ───────────────────────────────────────────────
+function _c68startPollUnread(user){
+  if(CS.pollUnread){clearInterval(CS.pollUnread);CS.pollUnread=null;}
+  CS.pollUnread=setInterval(async()=>{
+    const d=await api('GET','/api/chat/unread');
+    if(!d) return;
+    const t=Number(d.total||0);
+    const b=document.getElementById('c68-menu-badge');
+    if(b){b.textContent=t;b.style.display=t>0?'inline-block':'none';}
+    if(t>CS.lastUnread && window.__currentModule!=='chat') beep();
+    CS.lastUnread=t;
+  },8000);
 }
 
-// ── Envio ───────────────────────────────────────────────────────────────────
-async function doSend67(){
-  if(!CS.selected) return;
-  const send = document.getElementById('c67-send');
-  const ta   = document.getElementById('c67-ta');
-  const text = ta?.value.trim();
-  if(!text && !CS.attach) return;
-  if(send) { send.disabled=true; send.innerHTML='⏳'; }
+// ── Envio ─────────────────────────────────────────────────────────────────────
+async function _c68doSend(){
+  if(!CS.selId) return;
+  const snd=document.getElementById('c68-snd');
+  const ta=document.getElementById('c68-ta');
+  const text=(ta?.value||'').trim();
+  if(!text&&!CS.attach) return;
+  if(snd){snd.disabled=true;snd.innerHTML='⏳';}
 
-  let body;
-  if(CS.attach){ body={type:CS.attach.type,base64:CS.attach.base64,fileName:CS.attach.fileName}; }
-  else          { body={type:'text',text}; }
+  const body=CS.attach
+    ?{type:CS.attach.type,base64:CS.attach.base64,fileName:CS.attach.fileName}
+    :{type:'text',text};
 
-  const msg = await chatApi67('POST',`/api/chat/conversations/${CS.selected}/messages`, body);
+  const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);
   if(msg){
-    const box = document.getElementById('c67-msgs');
-    if(box){ box.appendChild(buildMsgEl67(msg)); scrollMsgs67(); }
-    CS.lastMsgId = Math.max(CS.lastMsgId, msg.id);
+    // Adiciona mensagem enviada imediatamente na tela
+    const box=document.getElementById('c68-msgs');
+    // Evita duplicata: só adiciona se não existe ainda
+    if(box && !document.querySelector(`[data-msgid="${msg.id}"]`)){
+      const el=_c68buildMsg(msg);
+      el.dataset.msgid=msg.id;
+      box.appendChild(el);
+      _c68scroll();
+    }
+    CS.lastId=Math.max(CS.lastId,msg.id);
   }
-  if(ta){ ta.value=''; ta.style.height='auto'; }
-  c67RemoveAtt?.();
-  if(send){ send.disabled=false; send.innerHTML='➤'; }
+  if(ta){ta.value='';ta.style.height='auto';}
+  _c68rmAtt?.();
+  if(snd){snd.disabled=false;snd.innerHTML='➤';}
 }
 
-// ── Gravação de áudio ───────────────────────────────────────────────────────
-function startRec67(){
+// ── Gravação ──────────────────────────────────────────────────────────────────
+function _c68startRec(){
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
     CS.recStream=stream; CS.recChunks=[];
-    CS.recorder=new MediaRecorder(stream);
-    CS.recorder.ondataavailable=e=>{ if(e.data.size>0) CS.recChunks.push(e.data); };
-    CS.recorder.onstop=async()=>{
+    CS.rec=new MediaRecorder(stream);
+    CS.rec.ondataavailable=e=>{if(e.data.size>0)CS.recChunks.push(e.data);};
+    CS.rec.onstop=async()=>{
       clearInterval(CS.recTimer);
-      document.getElementById('c67-rec-bar')?.classList.remove('show');
-      document.getElementById('c67-mic')?.classList.remove('recording');
+      document.getElementById('c68-recbar')?.classList.remove('on');
+      document.getElementById('c68-mic')?.classList.remove('rec');
       const blob=new Blob(CS.recChunks,{type:CS.recChunks[0]?.type||'audio/webm'});
-      const reader=new FileReader();
-      reader.onload=async ev=>{
-        CS.attach={type:'audio',base64:ev.target.result,fileName:'audio.webm',mimeType:blob.type};
-        await doSend67();
-        CS.recorder=null; CS.recChunks=[]; CS.recStream=null;
+      const r=new FileReader();
+      r.onload=async ev=>{
+        CS.attach={type:'audio',base64:ev.target.result,fileName:'audio.webm'};
+        await _c68doSend();
+        CS.rec=null;CS.recChunks=[];CS.recStream=null;
       };
-      reader.readAsDataURL(blob);
+      r.readAsDataURL(blob);
     };
-    CS.recorder.start();
-    CS.recStarted=Date.now();
-    document.getElementById('c67-rec-bar')?.classList.add('show');
-    document.getElementById('c67-mic')?.classList.add('recording');
+    CS.rec.start();
+    CS.recStart=Date.now();
+    document.getElementById('c68-recbar')?.classList.add('on');
+    document.getElementById('c68-mic')?.classList.add('rec');
     CS.recTimer=setInterval(()=>{
-      const s=Math.floor((Date.now()-CS.recStarted)/1000);
-      const el=document.getElementById('c67-rec-time');
-      if(el) el.textContent=Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');
+      const s=Math.floor((Date.now()-CS.recStart)/1000);
+      const el=document.getElementById('c68-rectm');
+      if(el) el.textContent=Math.floor(s/60)+':'+pad(s%60);
     },1000);
-  }).catch(()=>alert('Sem permissão para microfone.'));
+  }).catch(()=>alert('Sem permissão para o microfone.'));
 }
 
-function stopRec67(){
-  if(CS.recorder && CS.recorder.state==='recording'){
-    CS.recorder.stop();
+function _c68stopRec(){
+  if(CS.rec&&CS.rec.state==='recording'){
+    CS.rec.stop();
     CS.recStream?.getTracks().forEach(t=>t.stop());
   }
 }
 
-// ── Constrói elemento de mensagem ────────────────────────────────────────────
-function buildMsgEl67(m){
-  const isSystem = m.sender_name==='Sistema' && !m.from_me;
-  const grp = document.createElement('div');
-  grp.className = 'c67-grp ' + (isSystem ? 'recv' : m.from_me ? 'sent' : 'recv');
+// ── Constrói mensagem ─────────────────────────────────────────────────────────
+function _c68buildMsg(m){
+  const isSys=m.sender_name==='Sistema'&&!m.from_me;
+  const grp=document.createElement('div');
+  grp.className='c68-grp '+(isSys?'sys':m.from_me?'sent':'recv');
 
-  const bub = document.createElement('div');
-  bub.className = 'c67-bub ' + (isSystem ? 'system' : m.from_me ? 'sent' : 'recv');
-  bub.innerHTML = buildBubContent67(m);
+  const bub=document.createElement('div');
+  bub.className='c68-bub '+(isSys?'sys':m.from_me?'sent':'recv');
+  bub.innerHTML=_c68bubContent(m);
   grp.appendChild(bub);
 
-  if(!isSystem){
-    const meta = document.createElement('div');
-    meta.className = 'c67-msg-meta ' + (m.from_me?'sent':'recv');
-    const ts = m.sent_at ? new Date(m.sent_at) : new Date();
-    const time = pad2_67(ts.getHours())+':'+pad2_67(ts.getMinutes());
-    const si = STATUS_ICONS[m.status]||'✓';
-    const stCls = STATUS_BLUE.includes(m.status) ? ' c67-st '+m.status : '';
-    meta.innerHTML = `<span>${time}</span>${m.from_me?`<span class="c67-st${stCls}">${si}</span>`:''}`;
+  if(!isSys){
+    const meta=document.createElement('div');
+    meta.className='c68-meta '+(m.from_me?'sent':'recv');
+    const si=ST[m.status]||'✓';
+    const stcls=ST_BLUE.includes(m.status)?' c68-stblue':'';
+    meta.innerHTML=`<span>${m.sent_at?fmtTime(m.sent_at):''}</span>`
+      +(m.from_me?`<span class="${stcls}">${si}</span>`:'');
     grp.appendChild(meta);
   }
   return grp;
 }
 
-function buildBubContent67(m){
-  const type = m.msg_type;
-  if(type==='image' && m.media_url) return `<img class="cmedia" src="${esc(m.media_url)}" alt="imagem" onclick="c67Lightbox('${esc(m.media_url)}')">${m.caption?`<div style="margin-top:4px;font-size:11px">${esc(m.caption)}</div>`:''}`;
-  if(type==='audio' && m.media_url) return `<audio controls src="${esc(m.media_url)}" preload="none"></audio>`;
-  if(type==='video' && m.media_url) return `🎬 <a href="${esc(m.media_url)}" target="_blank" style="color:#25d366">Ver vídeo</a>`;
-  if(type==='document' && m.media_url) return `📄 <a href="${esc(m.media_url)}" target="_blank" style="color:#25d366">${esc(m.file_name||'Documento')}</a>`;
-  if(type==='sticker' && m.media_url) return `<img style="width:90px;height:90px;object-fit:contain" src="${esc(m.media_url)}" alt="sticker">`;
-  if(type==='location'){try{const l=typeof m.extra_json==='string'?JSON.parse(m.extra_json):m.extra_json;return `<a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank" style="color:#25d366">📍 ${esc(l.address||'Ver no mapa')}</a>`;}catch{return '📍 Localização';}}
-  if(type==='reaction'){try{const r=typeof m.extra_json==='string'?JSON.parse(m.extra_json):m.extra_json;return `<span style="font-size:20px">${esc(r?.value||'❤️')}</span>`;}catch{return '❤️';}}
+function _c68bubContent(m){
+  const t=m.msg_type||'text';
+  if(t==='image'&&m.media_url) return `<img class="cmimg" src="${esc(m.media_url)}" onclick="_c68lb('${esc(m.media_url)}')" alt="imagem">`+(m.caption?`<div class="c68-caption">${esc(m.caption)}</div>`:'');
+  if(t==='audio'&&m.media_url) return `<audio controls src="${esc(m.media_url)}" preload="none"></audio>`;
+  if(t==='video'&&m.media_url) return `🎬 <a href="${esc(m.media_url)}" target="_blank">Ver vídeo</a>`;
+  if(t==='document'&&m.media_url) return `📄 <a href="${esc(m.media_url)}" target="_blank">${esc(m.file_name||'Documento')}</a>`;
+  if(t==='sticker'&&m.media_url) return `<img style="width:90px;height:90px;object-fit:contain" src="${esc(m.media_url)}" alt="sticker">`;
+  if(t==='location'){try{const l=typeof m.extra_json==='string'?JSON.parse(m.extra_json):m.extra_json;return `📍 <a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank">${esc(l.address||'Ver no mapa')}</a>`;}catch{return '📍 Localização';}}
+  if(t==='reaction'){try{const r=typeof m.extra_json==='string'?JSON.parse(m.extra_json):m.extra_json;return `<span style="font-size:22px">${esc(r?.value||'❤️')}</span>`;}catch{return '❤️';}}
+  if(t==='contact') return `👤 Contato recebido`;
+  if(t==='unsupported'||!m.text_content) return `<span style="color:#4a5580;font-style:italic">Mensagem não suportada (${esc(t)})</span>`;
   return esc(m.text_content||'').replace(/\n/g,'<br>');
 }
 
-function scrollMsgs67(){ const b=document.getElementById('c67-msgs'); if(b) b.scrollTop=b.scrollHeight; }
-function pad2_67(n){ return String(n).padStart(2,'0'); }
+function _c68scroll(){ const b=document.getElementById('c68-msgs'); if(b) b.scrollTop=b.scrollHeight; }
 
 })();
 
