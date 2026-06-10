@@ -158,6 +158,30 @@ async function applyWhatsappSchema() {
   await pool.query(`ALTER TABLE chat_messages
     ADD COLUMN IF NOT EXISTS raw_payload JSONB DEFAULT '{}'::jsonb
   `).catch(() => {});
+
+  // Migration 007 (chat v68) auto-aplicada: deduplica conversas por telefone,
+  // cria a trava UNIQUE e o índice de busca de mensagens.
+  await pool.query(`DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conrelid = 'conversations'::regclass
+        AND conname = 'conversations_phone_unique'
+    ) THEN
+      DELETE FROM conversations c1
+      USING conversations c2
+      WHERE c1.phone = c2.phone
+        AND c1.id < c2.id;
+
+      ALTER TABLE conversations ADD CONSTRAINT conversations_phone_unique UNIQUE (phone);
+    END IF;
+  EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;`).catch(err => {
+    console.error('[WHATSAPP SCHEMA] dedup conversas:', err.message);
+  });
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_msgs_conv_sent
+    ON chat_messages(conversation_id, sent_at DESC, id DESC)
+  `).catch(() => {});
 }
 
 async function getQueueFull(id) {
@@ -675,5 +699,8 @@ router.get('/users', async (req, res) => {
     res.status(500).json({ error: 'Erro ao listar usuários: ' + err.message });
   }
 });
+
+// Aplica o schema já na subida do servidor (não bloqueia o boot se o banco falhar).
+ensureWhatsappSchema().catch(err => console.error('[WHATSAPP SCHEMA] boot:', err.message));
 
 module.exports = router;
