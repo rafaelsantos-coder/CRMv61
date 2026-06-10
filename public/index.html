@@ -1614,7 +1614,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       const [queues,groups,users]=await Promise.all([
         whatsappApi('GET','/api/whatsapp/queues'),
         whatsappApi('GET','/api/whatsapp/groups'),
-        api('GET','/api/users').catch(()=>whatsappApi('GET','/api/whatsapp/users'))
+        whatsappApi('GET','/api/whatsapp/users')
       ]);
       __whatsV68CState.queues=queues||[];
       __whatsV68CState.groups=groups||[];
@@ -4248,7 +4248,7 @@ async function _c68loadList(user){
     // carrega filas e usuários para modal. Não pode travar a lista caso um select falhe.
     const [q,u]=await Promise.all([
       api('GET','/api/chat/queues-available').catch(()=>[]),
-      api('GET','/api/users').catch(()=>api('GET','/api/whatsapp/users').catch(()=>[])),
+      (typeof api==='function' ? api('GET','/api/users').catch(()=>whatsappApi('GET','/api/whatsapp/users').catch(()=>[])) : whatsappApi('GET','/api/whatsapp/users').catch(()=>[])),
     ]);
     CS.queues=q||[]; CS.users=u||[];
   }catch(e){
