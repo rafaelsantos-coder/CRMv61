@@ -185,9 +185,8 @@ async function ensureChatSchema(req, res, next) {
       SELECT conname INTO c_name FROM pg_constraint
       WHERE conrelid = 'conversations'::regclass AND contype = 'c' AND conname LIKE '%status%';
       IF c_name IS NOT NULL THEN EXECUTE 'ALTER TABLE conversations DROP CONSTRAINT ' || quote_ident(c_name); END IF;
-      ALTER TABLE conversations ADD CONSTRAINT conversations_status_check
-      CHECK (status IN ('new','waiting','open','in_attendance','waiting_customer','transferred','closed','lost','converted'));
-    EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
+    END $$;`).catch(() => {});
+    await pool.query(`UPDATE conversations SET status='open' WHERE status IS NULL OR status=''`).catch(() => {});
 
     await pool.query(`CREATE TABLE IF NOT EXISTS chat_messages (
       id SERIAL PRIMARY KEY,
@@ -334,6 +333,8 @@ function patchIndexHtml(html) {
   const oldActions = '<td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>';
   const queueActions = `<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(\${q.id})">Editar</button><button class="whats-mini-btn" onclick="toggleWhatsQueue(\${q.id}, \${q.is_active ? 'false' : 'true'})">\${q.is_active ? 'Desativar' : 'Ativar'}</button><button class="whats-mini-btn" onclick="hardDeleteWhatsQueue(\${q.id})">Excluir</button></div></td>`;
   let patched = html.replace(oldActions, queueActions);
+  patched = patched.replace("}).catch(e=>{ console.warn('[Chat68]',method,path,e.message); return null; });", "}).catch(e=>{ window.__chat68LastError=e.message; console.warn('[Chat68]',method,path,e.message); return null; });");
+  patched = patched.replace('Erro ao carregar conversas. Verifique o banco/migrations e recarregue a tela.', "Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'");
   if (!patched.includes('window.editWhatsQueue=')) {
     const marker = '  window.deleteWhatsQueue=async function(id){';
     const queueFns = `  window.editWhatsQueue=function(id){
