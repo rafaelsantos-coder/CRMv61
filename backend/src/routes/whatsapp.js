@@ -652,14 +652,22 @@ router.delete('/groups/:id', async (req, res) => {
   }
 });
 
-// Usuários disponíveis para grupos
+// Usuários disponíveis para grupos — todos os perfis ativos
 router.get('/users', async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT id, name, username, role, city, active
       FROM users
       WHERE active = true
-      ORDER BY name
+      ORDER BY
+        CASE role
+          WHEN 'vendedor' THEN 1
+          WHEN 'bko' THEN 2
+          WHEN 'gerencia' THEN 3
+          WHEN 'admin' THEN 4
+          ELSE 5
+        END,
+        name ASC
     `);
     res.json(rows);
   } catch (err) {
