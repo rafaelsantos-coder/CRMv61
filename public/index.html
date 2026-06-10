@@ -1614,7 +1614,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       const [queues,groups,users]=await Promise.all([
         whatsappApi('GET','/api/whatsapp/queues'),
         whatsappApi('GET','/api/whatsapp/groups'),
-        whatsappApi('GET','/api/whatsapp/users')
+        api('GET','/api/users').catch(()=>whatsappApi('GET','/api/whatsapp/users'))
       ]);
       __whatsV68CState.queues=queues||[];
       __whatsV68CState.groups=groups||[];
@@ -4239,16 +4239,22 @@ function _c68bindEvents(user){
 
 // ── Lista de conversas ────────────────────────────────────────────────────────
 async function _c68loadList(user){
-  const data=await api('GET','/api/chat/conversations');
-  if(!data) return;
-  CS.convs=data; CS.filtered=data;
-  _c68renderList(user);
-  // carrega filas e usuários para modal
-  const [q,u]=await Promise.all([
-    api('GET','/api/chat/queues-available'),
-    api('GET','/api/whatsapp/users'),
-  ]);
-  CS.queues=q||[]; CS.users=u||[];
+  const el=document.getElementById('c68-list');
+  try{
+    const data=await api('GET','/api/chat/conversations');
+    if(!data) return;
+    CS.convs=data; CS.filtered=data;
+    _c68renderList(user);
+    // carrega filas e usuários para modal. Não pode travar a lista caso um select falhe.
+    const [q,u]=await Promise.all([
+      api('GET','/api/chat/queues-available').catch(()=>[]),
+      api('GET','/api/users').catch(()=>api('GET','/api/whatsapp/users').catch(()=>[])),
+    ]);
+    CS.queues=q||[]; CS.users=u||[];
+  }catch(e){
+    console.error('[CHAT] erro ao carregar conversas', e);
+    if(el) el.innerHTML='<div style="padding:12px;font-size:11px;color:#ef4444;font-family:monospace">Erro ao carregar conversas: '+esc(e.message||'falha desconhecida')+'</div>';
+  }
 }
 
 function _c68renderList(user){
