@@ -464,16 +464,10 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
   // ── Auth global — usada por todos os módulos ──────────────────────────────
   function getApiToken(){
-    // Preferir a sessão numérica do sistema demonstrativo.
-    // Em versões anteriores podia ficar um sulnet_jwt antigo no navegador,
-    // causando erro "Token inválido" nas telas administrativas.
-    const demoSession = sessionStorage.getItem('sulnet_integrado_session')
-      || localStorage.getItem('sulnet_integrado_session')
-      || '';
-    if(/^\d+$/.test(String(demoSession).trim())) return String(demoSession).trim();
     return sessionStorage.getItem('sulnet_jwt')
       || localStorage.getItem('sulnet_jwt')
-      || demoSession
+      || sessionStorage.getItem('sulnet_integrado_session')
+      || localStorage.getItem('sulnet_integrado_session')
       || '';
   }
   function buildAuthHeaders(){
@@ -1672,7 +1666,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       token:document.getElementById('wq-token')?.value?.trim()||'',
       clientToken:document.getElementById('wq-client-token')?.value?.trim()||'',
       settings:{ historyDays: Number(document.getElementById('wq-history-days')?.value||30) },
-      testConnection: false, // criação de fila não bloqueia por validação externa da Z-API
+      testConnection: !!(document.getElementById('wq-instance-id')?.value?.trim() && document.getElementById('wq-token')?.value?.trim()),
       isActive:true
     };
     if(!d.name){toast('Informe o nome da fila.','error');return}
@@ -1681,7 +1675,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       __whatsV68CState.queueDraft=null;
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
-      toast(q._warning || (d.instanceId&&d.token?'Fila criada e credenciais salvas.':'Fila criada. Agora preencha os dados da instância Z-API.'));
+      toast(d.instanceId&&d.token?'Fila criada e credenciais salvas.':'Fila criada. Agora preencha os dados da instância Z-API.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
@@ -1718,7 +1712,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         testConnection:true,
         isActive:true
       });
-      toast(saved._warning || 'Conexão Z-API salva. Use Testar status para validar.');
+      toast('Conexão Z-API salva e verificada.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=saved.id;
     }catch(e){toast(e.message,'error')}
@@ -4239,22 +4233,20 @@ function _c68bindEvents(user){
 
 // ── Lista de conversas ────────────────────────────────────────────────────────
 async function _c68loadList(user){
-  const el=document.getElementById('c68-list');
-  try{
-    const data=await api('GET','/api/chat/conversations');
-    if(!data) return;
-    CS.convs=data; CS.filtered=data;
-    _c68renderList(user);
-    // carrega filas e usuários para modal. Não pode travar a lista caso um select falhe.
-    const [q,u]=await Promise.all([
-      api('GET','/api/chat/queues-available').catch(()=>[]),
-      (typeof api==='function' ? api('GET','/api/users').catch(()=>whatsappApi('GET','/api/whatsapp/users').catch(()=>[])) : whatsappApi('GET','/api/whatsapp/users').catch(()=>[])),
-    ]);
-    CS.queues=q||[]; CS.users=u||[];
-  }catch(e){
-    console.error('[CHAT] erro ao carregar conversas', e);
-    if(el) el.innerHTML='<div style="padding:12px;font-size:11px;color:#ef4444;font-family:monospace">Erro ao carregar conversas: '+esc(e.message||'falha desconhecida')+'</div>';
+  const data=await api('GET','/api/chat/conversations');
+  if(!data){
+    const el=document.getElementById('c68-list');
+    if(el) el.innerHTML='<div style="padding:12px;font-size:11px;color:#fca5a5;font-family:monospace">Erro ao carregar conversas. Verifique o banco/migrations e recarregue a tela.</div>';
+    return;
   }
+  CS.convs=data; CS.filtered=data;
+  _c68renderList(user);
+  // carrega filas e usuários para modal
+  const [q,u]=await Promise.all([
+    api('GET','/api/chat/queues-available'),
+    api('GET','/api/whatsapp/users'),
+  ]);
+  CS.queues=q||[]; CS.users=u||[];
 }
 
 function _c68renderList(user){

@@ -31,6 +31,7 @@ const whatsappRoutes  = require('./routes/whatsapp');
 const webhookRoutes   = require('./routes/webhook');
 const integrationsRoutes = require('./routes/integrations');
 const { authMiddleware } = require('./middleware/auth');
+const { runMigrations } = require('./config/migrate');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -127,11 +128,22 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Sulnet V1 v68c-final rodando na porta ${PORT}`);
-  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
-  console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
-  console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
-});
+async function start() {
+  try {
+    await runMigrations();
+  } catch (err) {
+    console.error(`Falha ao preparar banco: ${err.message}`);
+    console.error('O servidor vai iniciar, mas rotas que dependem do schema podem falhar.');
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Sulnet V1 v68c-final rodando na porta ${PORT}`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
+    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
+    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
+  });
+}
+
+start();
 
 module.exports = app;

@@ -33,72 +33,6 @@ function parseJson(v, fallback = {}) {
 }
 
 
-
-
-async function ensureSulnetCrmSeedData() {
-  // Autocorreção leve para bancos antigos do Railway.
-  // Importante: não pode derrubar o módulo WhatsApp caso alguma tabela antiga tenha schema diferente.
-  await pool.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`).catch(() => {});
-
-  // Funis e usuários usando VALUES tipado para evitar o erro PostgreSQL:
-  // "inconsistent types deduced for parameter $1".
-  await pool.query(`
-    INSERT INTO funnels (name, sort_order, active)
-    SELECT v.name::varchar, v.sort_order::int, true
-    FROM (VALUES
-      ('13. RECEPTIVO'::varchar,13::int),
-      ('2. BACKOFFICE'::varchar,2::int),
-      ('21. RECEPTIVO PERDAS'::varchar,21::int),
-      ('14. UPSELL'::varchar,14::int),
-      ('30. CROSS-Sell'::varchar,30::int),
-      ('31. PEDIDO DE VENDA'::varchar,31::int)
-    ) AS v(name, sort_order)
-    WHERE NOT EXISTS (
-      SELECT 1 FROM funnels f WHERE LOWER(TRIM(f.name)) = LOWER(TRIM(v.name))
-    )
-  `).catch(err => console.warn('[WHATSAPP SEED funnels]', err.message));
-
-  await pool.query(`
-    INSERT INTO users (name, username, password_hash, role, city, email, active, must_change_password)
-    SELECT v.name::varchar, v.username::varchar, crypt(v.password::text, gen_salt('bf', 12)),
-           v.role::varchar, v.city::varchar, v.email::varchar, true, false
-    FROM (VALUES
-      ('Backoffice Comercial'::varchar,'bko'::varchar,'bko123'::text,'bko'::varchar,'Santa Rosa'::varchar,'bko@sulnet.com.br'::varchar),
-      ('Gerência Comercial'::varchar,'gerencia'::varchar,'gerencia123'::text,'gerencia'::varchar,'Santa Rosa'::varchar,'gerencia@sulnet.com.br'::varchar),
-      ('Rafael Teste'::varchar,'rafael.teste'::varchar,'comercial123'::text,'vendedor'::varchar,'Santa Rosa'::varchar,'rafael@sulnet.com.br'::varchar),
-      ('Andressa Reus'::varchar,'andressa.reus'::varchar,'comercial123'::text,'vendedor'::varchar,'Cerro Largo'::varchar,'andressa@sulnet.com.br'::varchar),
-      ('Gabrieli Borth Padilha'::varchar,'gabrieli.padilha'::varchar,'comercial123'::text,'vendedor'::varchar,'Santo Ângelo'::varchar,'gabrieli@sulnet.com.br'::varchar),
-      ('Jenifer Garcia Dutra'::varchar,'jenifer.dutra'::varchar,'comercial123'::text,'vendedor'::varchar,'Santa Rosa'::varchar,'jenifer@sulnet.com.br'::varchar),
-      ('Daniel Augusto Strieder Hubner'::varchar,'daniel.hubner'::varchar,'comercial123'::text,'vendedor'::varchar,'Entre-Ijuís'::varchar,'daniel@sulnet.com.br'::varchar)
-    ) AS v(name, username, password, role, city, email)
-    WHERE NOT EXISTS (
-      SELECT 1 FROM users u WHERE LOWER(TRIM(u.username)) = LOWER(TRIM(v.username))
-    )
-  `).catch(err => console.warn('[WHATSAPP SEED users]', err.message));
-
-  // Garante acesso dos usuários aos funis, sem interromper o módulo se a tabela não existir.
-  try {
-    const allFunnelIds = (await pool.query(`
-      SELECT id FROM funnels
-      WHERE LOWER(TRIM(name)) IN ('13. receptivo','2. backoffice','21. receptivo perdas','14. upsell','30. cross-sell','31. pedido de venda')
-    `)).rows.map(r=>r.id);
-    const receptivoId = (await pool.query(`SELECT id FROM funnels WHERE LOWER(TRIM(name))='13. receptivo' ORDER BY id LIMIT 1`)).rows[0]?.id;
-    const backofficeId = (await pool.query(`SELECT id FROM funnels WHERE LOWER(TRIM(name))='2. backoffice' ORDER BY id LIMIT 1`)).rows[0]?.id;
-    const activeUsers = await pool.query(`SELECT id, username, role FROM users WHERE active=true`);
-    for (const u of activeUsers.rows) {
-      let ids = [];
-      if (['admin','gerencia'].includes(u.role)) ids = allFunnelIds;
-      else if (u.username === 'bko' || u.role === 'bko') ids = [backofficeId].filter(Boolean);
-      else ids = [receptivoId].filter(Boolean);
-      for (const fid of ids) {
-        await pool.query(`INSERT INTO user_funnel_access (user_id, funnel_id) VALUES ($1::int,$2::int) ON CONFLICT DO NOTHING`, [u.id, fid]);
-      }
-    }
-  } catch (err) {
-    console.warn('[WHATSAPP SEED user_funnel_access]', err.message);
-  }
-}
-
 // ── Auto-correção de schema do módulo WhatsApp ──────────────────────────────
 // Evita travar a criação de fila quando a migration ainda não foi aplicada no Railway.
 let _schemaReady = false;
@@ -212,12 +146,6 @@ async function ensureWhatsappSchema() {
     ADD COLUMN IF NOT EXISTS raw_payload JSONB DEFAULT '{}'::jsonb
   `).catch(() => {});
 
-  try {
-    await ensureSulnetCrmSeedData();
-  } catch (seedErr) {
-    console.warn('[WHATSAPP SEED] Falha não bloqueante:', seedErr.message);
-  }
-
   _schemaReady = true;
 }
 
@@ -315,15 +243,9 @@ router.post('/queues', async (req, res) => {
         client_token: d.clientToken || '',
       };
 
-      let zapiWarning = null;
       if (d.testConnection) {
-        try {
-          const status = await zapi.checkStatus(creds);
-          apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
-        } catch (statusErr) {
-          apiStatus = 'connection_error';
-          zapiWarning = 'Fila salva, mas a Z-API retornou erro ao validar: ' + statusErr.message;
-        }
+        const status = await zapi.checkStatus(creds);
+        apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
       }
 
       const { rows: aiRows } = await client.query(`
@@ -377,9 +299,7 @@ router.post('/queues', async (req, res) => {
     ]);
 
     await client.query('COMMIT');
-    const out = await getQueueFull(rows[0].id);
-    if (typeof zapiWarning !== 'undefined' && zapiWarning) out._warning = zapiWarning;
-    res.status(201).json(out);
+    res.status(201).json(await getQueueFull(rows[0].id));
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erro ao criar fila: ' + err.message });
@@ -408,15 +328,9 @@ router.patch('/queues/:id', async (req, res) => {
         client_token: d.clientToken || '',
       };
 
-      let zapiWarning = null;
       if (d.testConnection) {
-        try {
-          const status = await zapi.checkStatus(creds);
-          apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
-        } catch (statusErr) {
-          apiStatus = 'connection_error';
-          zapiWarning = 'Fila salva, mas a Z-API retornou erro ao validar: ' + statusErr.message;
-        }
+        const status = await zapi.checkStatus(creds);
+        apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
       }
 
       const { rows: aiRows } = await client.query(`
@@ -481,9 +395,7 @@ router.patch('/queues/:id', async (req, res) => {
     ]);
 
     await client.query('COMMIT');
-    const out = await getQueueFull(id);
-    if (typeof zapiWarning !== 'undefined' && zapiWarning) out._warning = zapiWarning;
-    res.json(out);
+    res.json(await getQueueFull(id));
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erro ao atualizar fila: ' + err.message });
