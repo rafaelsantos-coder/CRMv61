@@ -17,6 +17,7 @@ process.env.NODE_ENV       = process.env.NODE_ENV       || 'production';
 process.env.R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'sistema-integrado-sulnet-v1-docs';
 
 const { pool } = require('./config/db');
+const { runMigrations } = require('./config/migrate');
 const authRoutes      = require('./routes/auth');
 const usersRoutes     = require('./routes/users');
 const oppsRoutes      = require('./routes/opportunities');
@@ -126,11 +127,23 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Sulnet V1 v68b-prod rodando na porta ${PORT}`);
-  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
-  console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
-  console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
-});
+async function start() {
+  // Aplica migrations pendentes antes de aceitar tráfego. Falha aqui não derruba
+  // o servidor — o healthcheck segue respondendo e as rotas têm verificação própria.
+  try {
+    await runMigrations();
+  } catch (err) {
+    console.error('⚠️  Erro ao rodar migrations no boot:', err.message);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Sulnet V1 v68b-prod rodando na porta ${PORT}`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
+    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
+    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
+  });
+}
+
+start();
 
 module.exports = app;

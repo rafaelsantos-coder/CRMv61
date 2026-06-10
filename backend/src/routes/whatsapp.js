@@ -700,7 +700,9 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Aplica o schema já na subida do servidor (não bloqueia o boot se o banco falhar).
-ensureWhatsappSchema().catch(err => console.error('[WHATSAPP SCHEMA] boot:', err.message));
+// O schema é criado pelas migrations no boot (config/migrate.js). O middleware
+// desta rota ainda chama ensureWhatsappSchema() por requisição como rede de
+// segurança, então não é preciso disparar na subida — evita corrida com as
+// migrations e o aviso "relation does not exist" no primeiro boot.
 
 module.exports = router;
