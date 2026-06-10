@@ -100,7 +100,8 @@ async function applyWhatsappSchema() {
     ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30),
     ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb,
     ADD COLUMN IF NOT EXISTS messages_config JSONB DEFAULT '{}'::jsonb,
-    ADD COLUMN IF NOT EXISTS server_status VARCHAR(40) DEFAULT 'pending'
+    ADD COLUMN IF NOT EXISTS server_status VARCHAR(40) DEFAULT 'pending',
+    ADD COLUMN IF NOT EXISTS history_days INT DEFAULT 30
   `);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS whatsapp_groups (
