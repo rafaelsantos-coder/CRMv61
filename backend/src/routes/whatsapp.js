@@ -243,9 +243,15 @@ router.post('/queues', async (req, res) => {
         client_token: d.clientToken || '',
       };
 
+      let zapiWarning = null;
       if (d.testConnection) {
-        const status = await zapi.checkStatus(creds);
-        apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
+        try {
+          const status = await zapi.checkStatus(creds);
+          apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
+        } catch (statusErr) {
+          apiStatus = 'connection_error';
+          zapiWarning = 'Fila salva, mas a Z-API retornou erro ao validar: ' + statusErr.message;
+        }
       }
 
       const { rows: aiRows } = await client.query(`
@@ -299,7 +305,9 @@ router.post('/queues', async (req, res) => {
     ]);
 
     await client.query('COMMIT');
-    res.status(201).json(await getQueueFull(rows[0].id));
+    const out = await getQueueFull(rows[0].id);
+    if (typeof zapiWarning !== 'undefined' && zapiWarning) out._warning = zapiWarning;
+    res.status(201).json(out);
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erro ao criar fila: ' + err.message });
@@ -328,9 +336,15 @@ router.patch('/queues/:id', async (req, res) => {
         client_token: d.clientToken || '',
       };
 
+      let zapiWarning = null;
       if (d.testConnection) {
-        const status = await zapi.checkStatus(creds);
-        apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
+        try {
+          const status = await zapi.checkStatus(creds);
+          apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
+        } catch (statusErr) {
+          apiStatus = 'connection_error';
+          zapiWarning = 'Fila salva, mas a Z-API retornou erro ao validar: ' + statusErr.message;
+        }
       }
 
       const { rows: aiRows } = await client.query(`
@@ -395,7 +409,9 @@ router.patch('/queues/:id', async (req, res) => {
     ]);
 
     await client.query('COMMIT');
-    res.json(await getQueueFull(id));
+    const out = await getQueueFull(id);
+    if (typeof zapiWarning !== 'undefined' && zapiWarning) out._warning = zapiWarning;
+    res.json(out);
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erro ao atualizar fila: ' + err.message });

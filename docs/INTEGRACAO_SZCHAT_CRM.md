@@ -85,3 +85,10 @@ Resposta esperada:
 ## Observação importante
 
 A migration 008 é idempotente, mas a própria rota também cria as estruturas necessárias ao primeiro uso. Mesmo assim, em produção é recomendado executar a migration `008_szchat_crm_integration.sql` no PostgreSQL do Railway.
+
+
+## Correção operacional v68c SZCHAT CRM REV2
+
+- A tela administrativa agora prioriza a sessão numérica do CRM em vez de um JWT antigo salvo no navegador, evitando o erro `Token inválido` ao carregar/criar filas.
+- A criação da fila não fica mais bloqueada pela validação externa da Z-API. As credenciais são salvas; a validação deve ser feita pelo botão de teste de status.
+- Caso a Z-API retorne erro na validação, a fila permanece salva e o sistema mostra o aviso para conferência.

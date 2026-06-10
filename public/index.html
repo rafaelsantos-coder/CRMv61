@@ -464,10 +464,16 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
   // ── Auth global — usada por todos os módulos ──────────────────────────────
   function getApiToken(){
+    // Preferir a sessão numérica do sistema demonstrativo.
+    // Em versões anteriores podia ficar um sulnet_jwt antigo no navegador,
+    // causando erro "Token inválido" nas telas administrativas.
+    const demoSession = sessionStorage.getItem('sulnet_integrado_session')
+      || localStorage.getItem('sulnet_integrado_session')
+      || '';
+    if(/^\d+$/.test(String(demoSession).trim())) return String(demoSession).trim();
     return sessionStorage.getItem('sulnet_jwt')
       || localStorage.getItem('sulnet_jwt')
-      || sessionStorage.getItem('sulnet_integrado_session')
-      || localStorage.getItem('sulnet_integrado_session')
+      || demoSession
       || '';
   }
   function buildAuthHeaders(){
@@ -1666,7 +1672,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       token:document.getElementById('wq-token')?.value?.trim()||'',
       clientToken:document.getElementById('wq-client-token')?.value?.trim()||'',
       settings:{ historyDays: Number(document.getElementById('wq-history-days')?.value||30) },
-      testConnection: !!(document.getElementById('wq-instance-id')?.value?.trim() && document.getElementById('wq-token')?.value?.trim()),
+      testConnection: false, // criação de fila não bloqueia por validação externa da Z-API
       isActive:true
     };
     if(!d.name){toast('Informe o nome da fila.','error');return}
@@ -1675,7 +1681,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       __whatsV68CState.queueDraft=null;
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
-      toast(d.instanceId&&d.token?'Fila criada e credenciais salvas.':'Fila criada. Agora preencha os dados da instância Z-API.');
+      toast(q._warning || (d.instanceId&&d.token?'Fila criada e credenciais salvas.':'Fila criada. Agora preencha os dados da instância Z-API.'));
       await loadWhatsV68C();
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
@@ -1712,7 +1718,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         testConnection:true,
         isActive:true
       });
-      toast('Conexão Z-API salva e verificada.');
+      toast(saved._warning || 'Conexão Z-API salva. Use Testar status para validar.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=saved.id;
     }catch(e){toast(e.message,'error')}
