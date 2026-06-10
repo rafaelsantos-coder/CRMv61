@@ -335,6 +335,44 @@ function patchIndexHtml(html) {
   let patched = html.replace(oldActions, queueActions);
   patched = patched.replace("}).catch(e=>{ console.warn('[Chat68]',method,path,e.message); return null; });", "}).catch(e=>{ window.__chat68LastError=e.message; console.warn('[Chat68]',method,path,e.message); return null; });");
   patched = patched.replace('Erro ao carregar conversas. Verifique o banco/migrations e recarregue a tela.', "Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'");
+
+  const chatLayout = `
+<style id="chat68-layout-v69">
+html,body{background:#f4f6fb!important;overflow-x:hidden}
+#chat68{height:calc(100vh - 54px)!important;max-width:1440px!important;margin:0 auto!important;background:#0b1018!important;border-left:1px solid #dfe5f0!important;border-right:1px solid #dfe5f0!important;box-shadow:0 18px 50px rgba(15,23,42,.12)!important}
+#c68-sidebar{width:360px!important;min-width:360px!important;background:#111722!important;border-right:1px solid #253044!important}
+#c68-sidebar-top{padding:16px!important;background:#0f1724!important;border-bottom:1px solid #253044!important}
+#c68-sidebar-top h3{font-size:14px!important;margin-bottom:12px!important;color:#f8fafc!important;letter-spacing:0!important}
+#c68-search,#c68-newph{height:38px!important;border-radius:8px!important;background:#182235!important;border:1px solid #2b3954!important;color:#e5ecff!important;font-size:13px!important}
+#c68-newbar{padding:12px 16px!important;gap:8px!important;background:#111722!important;border-bottom:1px solid #253044!important}
+.c68-newbtn{height:38px!important;border-radius:8px!important;background:#16a34a!important;border:0!important;color:white!important;font-weight:700!important;padding:0 14px!important}
+.c68-item{min-height:70px!important;padding:12px 16px!important;gap:12px!important;border-bottom:1px solid rgba(148,163,184,.12)!important}
+.c68-item:hover{background:#182235!important}.c68-item.sel{background:#1b2a3f!important;border-left:4px solid #ff4f1f!important;padding-left:12px!important}
+.c68-av{width:44px!important;height:44px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
+.c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:4px!important}.c68-itime{color:#94a3b8!important}
+.c68-ibadge{background:#ff4f1f!important;color:white!important}.c68-istatus.open,.c68-istatus.in_attendance{background:#22c55e!important}
+#c68-mid{background:#0b1018!important;position:relative!important}
+#c68-empty{background:radial-gradient(circle at center,rgba(34,197,94,.08),transparent 36%),#0b1018!important;color:#94a3b8!important}
+#c68-empty span{font-size:58px!important;opacity:.22!important}#c68-empty p{color:#dbeafe!important;font-size:15px!important;font-weight:700!important}
+#c68-head{height:64px!important;padding:0 18px!important;background:#111722!important;border-bottom:1px solid #253044!important}
+.c68-hav{width:42px!important;height:42px!important;background:#23314a!important;color:#7dd3fc!important}.c68-hname{font-size:15px!important;color:#f8fafc!important}.c68-hsub{font-size:12px!important;color:#94a3b8!important}
+.c68-hacts{gap:8px!important}.c68-hbtn{height:34px!important;border-radius:8px!important;background:#182235!important;border:1px solid #334155!important;color:#dbeafe!important}.c68-hbtn.red{color:#fecaca!important;border-color:#7f1d1d!important;background:#2a1518!important}
+#c68-msgs{padding:24px 32px!important;background:linear-gradient(180deg,#0b1018 0%,#0d141f 100%)!important;gap:6px!important}.c68-bub{font-size:13px!important;max-width:min(680px,72%)!important;border-radius:14px!important;padding:10px 14px!important}.c68-bub.sent{background:#155e3a!important;border-color:#1f7a4d!important;color:#f0fdf4!important}.c68-bub.recv{background:#182235!important;border-color:#334155!important;color:#e5ecff!important}.c68-meta{font-size:11px!important;color:#94a3b8!important}
+#c68-inp{padding:14px 18px!important;background:#111722!important;border-top:1px solid #253044!important}.c68-inprow{gap:10px!important}.c68-attbtn,.c68-micbtn,.c68-sndbtn{width:42px!important;height:42px!important;border-radius:10px!important}.c68-ta{min-height:42px!important;border-radius:10px!important;background:#182235!important;border:1px solid #334155!important;color:#f8fafc!important;font-size:13px!important;padding:10px 12px!important}.c68-sndbtn{background:#16a34a!important;color:white!important}
+#c68-panel{width:320px!important;min-width:320px!important;background:#111722!important;border-left:1px solid #253044!important}.c68-psec{padding:16px!important}.c68-oppcard,.c68-note{background:#182235!important;border-color:#334155!important}.c68-pval,.c68-oppval{color:#f8fafc!important}
+.c68-error-card{margin:14px!important;padding:14px!important;border:1px solid rgba(248,113,113,.45)!important;background:rgba(127,29,29,.22)!important;border-radius:10px!important;color:#fecaca!important;font-family:inherit!important;line-height:1.45!important}.c68-error-card strong{display:block!important;color:#fff!important;margin-bottom:6px!important}.c68-error-card button{margin-top:10px!important;height:32px!important;border:0!important;border-radius:8px!important;background:#ef4444!important;color:white!important;font-weight:700!important;padding:0 12px!important;cursor:pointer!important}
+@media (max-width:900px){#chat68{height:calc(100vh - 48px)!important;border:0!important}#c68-sidebar{width:42vw!important;min-width:280px!important}#c68-panel{display:none!important}.c68-hacts{display:none!important}#c68-msgs{padding:18px!important}.c68-bub{max-width:86%!important}}
+</style>
+<script id="chat68-layout-v69-js">
+(function(){
+  window.__chat68Reload=function(){location.reload();};
+})();
+</script>`;
+  if (!patched.includes('chat68-layout-v69')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
+  patched = patched.replace(
+    "if(el) el.innerHTML='<div style=\"padding:12px;font-size:11px;color:#fca5a5;font-family:monospace\">Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'</div>';",
+    "if(el) el.innerHTML='<div class=\"c68-error-card\"><strong>Não foi possível carregar as conversas</strong><div>'+esc(window.__chat68LastError||'Falha na API do chat')+'</div><button onclick=\"window.__chat68Reload&&window.__chat68Reload()\">Recarregar chat</button></div>';"
+  );
   if (!patched.includes('window.editWhatsQueue=')) {
     const marker = '  window.deleteWhatsQueue=async function(id){';
     const queueFns = `  window.editWhatsQueue=function(id){
