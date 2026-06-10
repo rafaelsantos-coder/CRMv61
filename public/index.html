@@ -636,7 +636,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       {id:28,funnelId:6,name:'INÍCIO',sortOrder:1,color:'#94a3b8'}, {id:29,funnelId:6,name:'CONFERÊNCIA',sortOrder:2,color:'#ef3f0a'}, {id:30,funnelId:6,name:'ASSINATURA',sortOrder:3,color:'#d97706'}, {id:31,funnelId:6,name:'CONCLUÍDO',sortOrder:4,color:'#16a34a'},
     ];
     const origins=[
-      {id:1,name:'WhatsApp',active:true},{id:2,name:'Comercial - MetaAds - Fibra',active:true},{id:3,name:'Comercial - MetaAds - Google',active:true},{id:4,name:'Trafego pago Site',active:true},{id:5,name:'Indicação Cliente',active:true},{id:6,name:'Loja / Frente de Loja',active:true},{id:7,name:'Porta a Porta',active:true}
+      {id:1,name:'WhatsApp',active:true},{id:2,name:'Comercial - MetaAds - Fibra',active:true},{id:3,name:'Comercial - MetaAds - Google',active:true},{id:4,name:'Trafego pago Site',active:true},{id:5,name:'Indicação Cliente',active:true},{id:6,name:'Loja / Frente de Loja',active:true},{id:7,name:'Porta a Porta',active:true},{id:8,name:'SZ Chat',active:true}
     ];
     const products=[
       {
@@ -1252,7 +1252,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       {id:3,name:'Análise manual - score médio com restrições',minScore:400,maxScore:549,decision:'Análise manual',riskLevel:'Médio',maxRestrictions:2,allowProtest:false,condition:'Encaminhar para análise BKO/gerência com justificativa.',active:true,sortOrder:3},
       {id:4,name:'Reprovação automática - score baixo ou protesto',minScore:0,maxScore:399,decision:'Reprovado',riskLevel:'Alto',maxRestrictions:99,allowProtest:false,condition:'Reprovado por score baixo. Se houver exceção, solicitar avaliação gerencial.',active:true,sortOrder:4}
     ];
-    return {users,funnels,stages,origins,products,plans,tags,outcomeReasons,creditRules,opportunities,analysisRequests,calendarEvents,googleCalendarConfig,counters:{user:8,funnel:6,stage:31,origin:7,product:15,plan:55,tag:5,outcome:7,opp:4,analysis:3,calendar:3,creditRule:4}};
+    return {users,funnels,stages,origins,products,plans,tags,outcomeReasons,creditRules,opportunities,analysisRequests,calendarEvents,googleCalendarConfig,counters:{user:8,funnel:6,stage:31,origin:8,product:15,plan:55,tag:5,outcome:7,opp:4,analysis:3,calendar:3,creditRule:4}};
   }
   function migrateState(st){
     const base=seed();
@@ -1287,6 +1287,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     st.funnels.forEach((f,i)=>{if(f.active===undefined)f.active=true;if(!f.sortOrder)f.sortOrder=i+1});
     st.stages.forEach((s,i)=>{if(!s.sortOrder)s.sortOrder=i+1;if(!s.color)s.color='#ef3f0a'});
     st.origins.forEach(o=>{if(o.active===undefined)o.active=true});
+    if(!st.origins.some(o=>normName(o.name)==='SZ CHAT')){
+      st.counters=st.counters||{};
+      st.counters.origin=Math.max(Number(st.counters.origin)||0,...st.origins.map(x=>Number(x.id)||0))+1;
+      st.origins.push({id:st.counters.origin,name:'SZ Chat',active:true});
+      changed=true;
+    }
     st.products.forEach((c,i)=>{if(c.active===undefined)c.active=true;if(!c.sortOrder)c.sortOrder=i+1});
     st.plans.forEach(p=>{if(p.active===undefined)p.active=true;if(!Array.isArray(p.tags))p.tags=[];if(!p.categoryId&&p.productType){const legacy={'fibra':'FIBRA','movel':'TELEFONIA MÓVEL','fixo':'TELEFONIA FIXA','tv':'TV'}[p.productType];const cat=st.products.find(c=>normName(c.name)===normName(legacy));if(cat){p.categoryId=cat.id;changed=true;}}});
     st.tags.forEach(t=>{if(t.active===undefined)t.active=true;if(!t.color)t.color='orange'});
@@ -1656,6 +1662,11 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       name:document.getElementById('wq-name')?.value?.trim()||'',
       queueType:document.getElementById('wq-type')?.value||'zapi',
       type:'comercial',
+      instanceId:document.getElementById('wq-instance-id')?.value?.trim()||'',
+      token:document.getElementById('wq-token')?.value?.trim()||'',
+      clientToken:document.getElementById('wq-client-token')?.value?.trim()||'',
+      settings:{ historyDays: Number(document.getElementById('wq-history-days')?.value||30) },
+      testConnection: !!(document.getElementById('wq-instance-id')?.value?.trim() && document.getElementById('wq-token')?.value?.trim()),
       isActive:true
     };
     if(!d.name){toast('Informe o nome da fila.','error');return}
@@ -1664,7 +1675,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       __whatsV68CState.queueDraft=null;
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
-      toast('Fila criada. Agora preencha os dados da instância Z-API.');
+      toast(d.instanceId&&d.token?'Fila criada e credenciais salvas.':'Fila criada. Agora preencha os dados da instância Z-API.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
@@ -1798,6 +1809,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   }
 
   function whatsCreateQueueFormV68C(){
+    const d=__whatsV68CState.queueDraft||{};
     return `<div class="whats-expand-panel">
       <h3 style="margin:0 0 16px">Criar nova fila de WhatsApp</h3>
       <div class="whats-form-grid two">
@@ -2082,8 +2094,84 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-  function renderAdmin(user){const tabs=[['usuarios','Usuários'],['funis','Funis e Etapas'],['origens','Origens'],['planos','Categorias e Produtos'],['tags','Tags'],['motivos','Motivos Ganho/Perda'],['atendimento','Atendimento / WhatsApp']];return `<div class="subbar"><div><h1>Administração</h1><p>Cadastros básicos do sistema integrado. <span class="small">Alterações são salvas automaticamente neste navegador.</span></p></div><button class="btn btn-light" data-action="resetData">Restaurar dados de demonstração</button></div><div class="tabs">${tabs.map(t=>`<button class="tab ${ui.adminTab===t[0]?'active':''}" data-admin-tab="${t[0]}">${t[1]}</button>`).join('')}</div><div class="mt14">${adminTabContent()}</div>`}
-  function adminTabContent(){const st=getState();if(ui.adminTab==='usuarios')return adminUsers(st);if(ui.adminTab==='funis')return adminFunnels(st);if(ui.adminTab==='origens')return adminOrigins(st);if(ui.adminTab==='planos')return adminPlans(st);if(ui.adminTab==='tags')return adminTags(st);if(ui.adminTab==='motivos')return adminOutcomes(st);if(ui.adminTab==='atendimento')return adminAttendancePanel();return ''}
+
+  function szchatWebhookUrl(){
+    return `${location.origin}/api/integrations/szchat/webhook`;
+  }
+
+  window.copySzChatWebhookUrl=async function(){
+    try{await navigator.clipboard.writeText(szchatWebhookUrl());toast('URL do webhook copiada.')}catch(e){toast('Copie manualmente a URL exibida.','error')}
+  }
+
+  window.testSzChatHealth=async function(){
+    try{
+      const r=await fetch('/api/integrations/szchat/health',{headers:buildAuthHeaders()});
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(data.error||'Health check falhou');
+      toast('Integração SZ Chat ativa.');
+      window.__szchatHealth=data;
+      render();
+    }catch(e){toast(e.message||'Erro ao testar SZ Chat.','error')}
+  }
+
+  window.sendSzChatTestLead=async function(){
+    const phone=prompt('Telefone para teste, somente números. Ex: 5599999999999','5599999999999');
+    if(!phone)return;
+    const payload={
+      event:'enter_queue',
+      agent:{email:'gabrieli.padilha@bot.sulnet'},
+      contact:{name:'Cliente Teste SZ Chat',phone},
+      platform:'WhatsApp',
+      channel_id:'canal_teste_crm',
+      session_id:'teste_'+Date.now(),
+      protocol:'SZ-TESTE-'+Date.now(),
+      message:'Olá, quero contratar internet.'
+    };
+    try{
+      const r=await fetch('/api/integrations/szchat/webhook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(data.error||data.detail||'Erro ao enviar lead teste');
+      toast(data.duplicated?'Lead já existia; histórico atualizado.':'Lead teste criada para gabrieli.padilha.');
+      window.__szchatLastTest=data;
+      render();
+    }catch(e){toast(e.message||'Erro no teste SZ Chat.','error')}
+  }
+
+  function adminSzChatPanel(){
+    const health=window.__szchatHealth;
+    const last=window.__szchatLastTest;
+    return `<div class="grid two">
+      <div class="card">
+        <h3>Integração SZ Chat → CRM</h3>
+        <p class="small">Use esta URL na API Receptiva/Webhook do SZ Chat. Quando o cliente entrar no atendimento, o CRM cria a lead automaticamente.</p>
+        <div class="field"><label>URL do webhook</label><input readonly value="${esc(szchatWebhookUrl())}" style="font-family:monospace;font-size:12px"></div>
+        <div class="toolbar"><button class="btn btn-light" onclick="copySzChatWebhookUrl()">Copiar URL</button><button class="btn btn-primary" onclick="testSzChatHealth()">Testar conexão</button></div>
+        ${health?`<div class="alert success mt14">Integração ativa: ${esc(health.endpoint||'/api/integrations/szchat/webhook')}</div>`:''}
+      </div>
+      <div class="card">
+        <h3>Regra de entrada da lead</h3>
+        <div class="list-item"><div><strong>Origem da lead</strong><br><span class="small">Sempre entra como SZ Chat.</span></div><span class="pill">SZ Chat</span></div>
+        <div class="list-item"><div><strong>Usuário SZ Chat</strong><br><span class="small mono">gabrieli.padilha@bot.sulnet</span></div><span>→</span></div>
+        <div class="list-item"><div><strong>Usuário CRM</strong><br><span class="small mono">gabrieli.padilha</span></div><span class="pill">teste</span></div>
+        <p class="small mt14">A integração remove automaticamente tudo depois do @ para localizar o usuário do CRM e usar o funil vinculado a ele.</p>
+        <button class="btn btn-primary" onclick="sendSzChatTestLead()">Criar lead teste para Gabrieli</button>
+        ${last?`<div class="alert success mt14">Último teste: ${esc(last.message||'processado')} ${last.lead_id?` — Lead #${last.lead_id}`:''}</div>`:''}
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <h3>Como configurar no SZ Chat</h3>
+        <ol class="small" style="line-height:1.8;margin-top:8px">
+          <li>Acesse o painel do SZ Chat.</li>
+          <li>Abra a área de Integrações / API Receptiva / Webhook.</li>
+          <li>Cadastre a URL acima como destino POST.</li>
+          <li>Habilite eventos de atendimento/fila e mensagem do cliente.</li>
+          <li>Faça um chamado real no SZ Chat e verifique a lead no CRM.</li>
+        </ol>
+      </div>
+    </div>`;
+  }
+
+  function renderAdmin(user){const tabs=[['usuarios','Usuários'],['funis','Funis e Etapas'],['origens','Origens'],['planos','Categorias e Produtos'],['tags','Tags'],['motivos','Motivos Ganho/Perda'],['atendimento','Atendimento / WhatsApp'],['szchat','Integração SZ Chat']];return `<div class="subbar"><div><h1>Administração</h1><p>Cadastros básicos do sistema integrado. <span class="small">Alterações são salvas automaticamente neste navegador.</span></p></div><button class="btn btn-light" data-action="resetData">Restaurar dados de demonstração</button></div><div class="tabs">${tabs.map(t=>`<button class="tab ${ui.adminTab===t[0]?'active':''}" data-admin-tab="${t[0]}">${t[1]}</button>`).join('')}</div><div class="mt14">${adminTabContent()}</div>`}
+  function adminTabContent(){const st=getState();if(ui.adminTab==='usuarios')return adminUsers(st);if(ui.adminTab==='funis')return adminFunnels(st);if(ui.adminTab==='origens')return adminOrigins(st);if(ui.adminTab==='planos')return adminPlans(st);if(ui.adminTab==='tags')return adminTags(st);if(ui.adminTab==='motivos')return adminOutcomes(st);if(ui.adminTab==='atendimento')return adminAttendancePanel();if(ui.adminTab==='szchat')return adminSzChatPanel();return ''}
   function adminFunnels(st){
     st.funnels = Array.isArray(st.funnels)?st.funnels:[];
     st.stages = Array.isArray(st.stages)?st.stages:[];
@@ -2996,14 +3084,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const currentFunnel=opp.funnelId||st.stages.find(s=>s.id===Number(currentStage))?.funnelId||ui.funnelId;
     const productRequired=!(Number(currentStage)===Number(getFirstStage(st,currentFunnel)?.id));
     openModal(`<div class="modal"><div class="modal-head"><h2>${isEdit?'Editar Oportunidade':'Nova Oportunidade'}</h2><button class="x" data-action="closeModal">×</button></div><div class="modal-body"><form id="oppForm" data-id="${opp.id||''}" novalidate>
-      <input type="hidden" name="funnelId" value="${esc(currentFunnel)}"><input type="hidden" name="stageId" value="${esc(currentStage)}"><input type="hidden" name="originId" value="${esc(opp.originId||'')}">
+      <input type="hidden" name="funnelId" value="${esc(currentFunnel)}"><input type="hidden" name="stageId" value="${esc(currentStage)}">
       ${renderOppTabs()}
 
       <section class="opp-tab-panel active" data-opp-panel="dados">
         <div class="section-title">Dados pessoais</div>
         <div class="field"><label>Tipo de documento *</label><div class="doc-toggle"><button type="button" class="${docType==='cpf'?'active':''}" data-doc-toggle="cpf">CPF</button><button type="button" class="${docType==='cnpj'?'active':''}" data-doc-toggle="cnpj">CNPJ</button></div><input type="hidden" name="documentType" value="${docType}"></div>
         <div class="form-row three"><div class="field"><label>CPF/CNPJ *</label><input name="clientCpf" required value="${esc(opp.clientCpf||'')}" placeholder="000.000.000-00"><small data-doc-analysis-hint>${esc(analysisHintText(st,opp.clientCpf||''))}</small></div><div class="field"><label>Nome do cliente *</label><input name="clientName" required value="${esc(opp.clientName||'')}"></div><div class="field"><label>Data nascimento / abertura *</label><input name="clientBirthDate" type="date" value="${esc(opp.clientBirthDate||'')}"><small>Obrigatório para avançar após a etapa inicial.</small></div></div>
-        <div class="form-row"><div class="field"><label>Telefone</label><input name="clientPhone" value="${esc(opp.clientPhone||'')}" placeholder="(55) 99999-9999"></div><div class="field"><label>E-mail</label><input name="clientEmail" value="${esc(opp.clientEmail||'')}"></div></div>
+        <div class="form-row three"><div class="field"><label>Telefone</label><input name="clientPhone" value="${esc(opp.clientPhone||'')}" placeholder="(55) 99999-9999"></div><div class="field"><label>E-mail</label><input name="clientEmail" value="${esc(opp.clientEmail||'')}"></div><div class="field"><label>Origem</label><select name="originId"><option value="">Selecione</option>${st.origins.filter(o=>o.active!==false).map(o=>`<option value="${o.id}" ${Number(o.id)===Number(opp.originId)?'selected':''}>${esc(o.name)}</option>`).join('')}</select><small>Leads do SZ Chat entram automaticamente como origem SZ Chat.</small></div></div>
 
         <div class="section-title">Dados de endereço</div>
         <div class="form-row three"><div class="field"><label>CEP</label><input name="cep" value="${esc(opp.cep||'')}" placeholder="00000-000"><small data-cep-status>Informe o CEP para buscar rua, bairro, cidade e UF automaticamente.</small></div><div class="field"><label>Cidade</label><input name="city" value="${esc(opp.city||user.city||'')}"></div><div class="field"><label>UF</label><input name="uf" maxlength="2" value="${esc(opp.uf||'RS')}"></div></div>

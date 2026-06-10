@@ -29,6 +29,7 @@ const chatRoutes      = require('./routes/chat');
 const chatAdminRoutes = require('./routes/chatAdmin');
 const whatsappRoutes  = require('./routes/whatsapp');
 const webhookRoutes   = require('./routes/webhook');
+const integrationsRoutes = require('./routes/integrations');
 const { authMiddleware } = require('./middleware/auth');
 
 const app  = express();
@@ -108,6 +109,8 @@ app.use('/api/dashboard',    authMiddleware, dashboardRoutes);
 app.use('/api/chat',         authMiddleware, chatRoutes);
 app.use('/api/chat-admin',   authMiddleware, chatAdminRoutes);
 app.use('/api/whatsapp',     authMiddleware, whatsappRoutes);
+// Webhooks externos sem JWT. Use token próprio quando configurado.
+app.use('/api/integrations/szchat', integrationsRoutes);
 app.use('/webhook',          webhookRoutes);
 
 // ── Servir frontend ────────────────────────────────────────────────────────
