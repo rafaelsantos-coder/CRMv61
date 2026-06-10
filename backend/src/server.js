@@ -11,7 +11,6 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
-// ── Valores padrão seguros para variáveis ausentes ─────────────────────────
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis';
 process.env.JWT_EXPIRES = process.env.JWT_EXPIRES || '12h';
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
@@ -37,17 +36,14 @@ const { runMigrations } = require('./config/migrate');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Segurança ───────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// CORS — aceita qualquer origem se ALLOWED_ORIGINS não estiver configurado
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
   : true;
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
-// Rate limiting
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
@@ -73,7 +69,165 @@ function requireQueueAdmin(req, res) {
   return true;
 }
 
-// ── Health check — SEMPRE responde 200, mesmo sem banco ────────────────────
+let chatSchemaReady = false;
+async function ensureChatSchema(req, res, next) {
+  try {
+    if (chatSchemaReady) return next();
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS zapi_config (
+      id SERIAL PRIMARY KEY,
+      instance_id TEXT NOT NULL,
+      token TEXT NOT NULL,
+      client_token TEXT NOT NULL DEFAULT '',
+      webhook_url TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS api_instances (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      provider VARCHAR(40) NOT NULL DEFAULT 'Z-API',
+      instance_id TEXT NOT NULL,
+      token TEXT NOT NULL,
+      client_token TEXT DEFAULT '',
+      phone_number VARCHAR(30),
+      status VARCHAR(40) DEFAULT 'unknown',
+      webhook_url TEXT,
+      is_active BOOLEAN DEFAULT true,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      api_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'api_instances_provider_instance_unique') THEN
+        ALTER TABLE api_instances ADD CONSTRAINT api_instances_provider_instance_unique UNIQUE(provider, instance_id);
+      END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS attendance_queues (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(120) NOT NULL,
+      description TEXT,
+      type VARCHAR(40) DEFAULT 'comercial',
+      api_instance_id INT REFERENCES api_instances(id) ON DELETE SET NULL,
+      distribution_type VARCHAR(40) DEFAULT 'manual',
+      business_hours JSONB DEFAULT '{}'::jsonb,
+      welcome_message TEXT,
+      after_hours_message TEXT,
+      is_active BOOLEAN DEFAULT true,
+      last_assigned_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`ALTER TABLE attendance_queues
+      ADD COLUMN IF NOT EXISTS queue_type VARCHAR(40) DEFAULT 'zapi',
+      ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30),
+      ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS messages_config JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS server_status VARCHAR(40) DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS history_days INT DEFAULT 30
+    `);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS conversations (
+      id SERIAL PRIMARY KEY,
+      phone VARCHAR(20) NOT NULL UNIQUE,
+      client_name VARCHAR(120) DEFAULT '',
+      client_photo_url TEXT,
+      unread_count INT DEFAULT 0,
+      status VARCHAR(20) DEFAULT 'open',
+      assigned_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      opportunity_id INT REFERENCES opportunities(id) ON DELETE SET NULL,
+      queue_id INT REFERENCES attendance_queues(id) ON DELETE SET NULL,
+      api_instance_id INT REFERENCES api_instances(id) ON DELETE SET NULL,
+      last_message_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`ALTER TABLE conversations
+      ADD COLUMN IF NOT EXISTS queue_id INT REFERENCES attendance_queues(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS api_instance_id INT REFERENCES api_instances(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS group_id INT,
+      ADD COLUMN IF NOT EXISTS phone_normalized VARCHAR(30),
+      ADD COLUMN IF NOT EXISTS provider_contact_id TEXT,
+      ADD COLUMN IF NOT EXISTS contact_lid TEXT,
+      ADD COLUMN IF NOT EXISTS chat_lid TEXT,
+      ADD COLUMN IF NOT EXISTS raw_contact JSONB DEFAULT '{}'::jsonb
+    `);
+
+    await pool.query(`DO $$
+    DECLARE c_name TEXT;
+    BEGIN
+      SELECT conname INTO c_name
+      FROM pg_constraint
+      WHERE conrelid = 'conversations'::regclass
+        AND contype = 'c'
+        AND conname LIKE '%status%';
+      IF c_name IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE conversations DROP CONSTRAINT ' || quote_ident(c_name);
+      END IF;
+      ALTER TABLE conversations ADD CONSTRAINT conversations_status_check
+      CHECK (status IN ('new','waiting','open','in_attendance','waiting_customer','transferred','closed','lost','converted'));
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      zapi_message_id VARCHAR(120),
+      from_me BOOLEAN DEFAULT false,
+      sender_id INT REFERENCES users(id) ON DELETE SET NULL,
+      sender_name VARCHAR(120),
+      msg_type VARCHAR(20) DEFAULT 'text',
+      text_content TEXT,
+      media_url TEXT,
+      media_key TEXT,
+      file_name VARCHAR(200),
+      caption TEXT,
+      extra_json JSONB,
+      status VARCHAR(20) DEFAULT 'RECEIVED',
+      sent_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`ALTER TABLE chat_messages
+      ADD COLUMN IF NOT EXISTS raw_payload JSONB DEFAULT '{}'::jsonb
+    `);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS chat_transfers (
+      id SERIAL PRIMARY KEY,
+      conversation_id INT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      from_queue_id INT REFERENCES attendance_queues(id) ON DELETE SET NULL,
+      to_queue_id INT REFERENCES attendance_queues(id) ON DELETE SET NULL,
+      from_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      to_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      reason TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS queue_users (
+      id SERIAL PRIMARY KEY,
+      queue_id INT NOT NULL REFERENCES attendance_queues(id) ON DELETE CASCADE,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role_in_queue VARCHAR(40) DEFAULT 'atendente',
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(queue_id, user_id)
+    )`);
+
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_conv_last_msg ON conversations(last_message_at DESC)').catch(() => {});
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_msgs_conv_sent ON chat_messages(conversation_id, sent_at DESC, id DESC)').catch(() => {});
+
+    chatSchemaReady = true;
+    next();
+  } catch (err) {
+    console.error('[CHAT SCHEMA]', err.message);
+    res.status(500).json({ error: 'Erro ao preparar Chat: ' + err.message });
+  }
+}
+
 app.get('/health', async (req, res) => {
   let dbStatus = 'disconnected';
   let dbOk = false;
@@ -94,7 +248,6 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// ── Config pública ─────────────────────────────────────────────────────────
 app.get('/api/config', (req, res) => {
   res.json({
     app: 'Sistema Integrado Sulnet V1',
@@ -105,7 +258,6 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// ── Rotas da API ───────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authMiddleware, usersRoutes);
 app.use('/api/opportunities', authMiddleware, oppsRoutes);
@@ -114,8 +266,8 @@ app.use('/api/agenda', authMiddleware, agendaRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
 app.use('/api/uploads', authMiddleware, uploadsRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
-app.use('/api/chat', authMiddleware, chatRoutes);
-app.use('/api/chat-admin', authMiddleware, chatAdminRoutes);
+app.use('/api/chat', authMiddleware, ensureChatSchema, chatRoutes);
+app.use('/api/chat-admin', authMiddleware, ensureChatSchema, chatAdminRoutes);
 
 app.patch('/api/whatsapp/queues/:id/active', authMiddleware, async (req, res) => {
   try {
@@ -154,13 +306,12 @@ app.delete('/api/whatsapp/queues/:id/hard', authMiddleware, async (req, res) => 
 });
 
 app.use('/api/whatsapp', authMiddleware, whatsappRoutes);
-// Webhooks externos sem JWT. Use token próprio quando configurado.
 app.use('/api/integrations/szchat', integrationsRoutes);
 app.use('/webhook', webhookRoutes);
 
 function patchIndexHtml(html) {
   const oldActions = '<td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>';
-  const queueActions = '<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(${q.id})">Editar</button><button class="whats-mini-btn" onclick="toggleWhatsQueue(${q.id}, ${q.is_active ? \'false\' : \'true\'})">${q.is_active ? \'Desativar\' : \'Ativar\'}</button><button class="whats-mini-btn" onclick="hardDeleteWhatsQueue(${q.id})">Excluir</button></div></td>';
+  const queueActions = `<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(\${q.id})">Editar</button><button class="whats-mini-btn" onclick="toggleWhatsQueue(\${q.id}, \${q.is_active ? 'false' : 'true'})">\${q.is_active ? 'Desativar' : 'Ativar'}</button><button class="whats-mini-btn" onclick="hardDeleteWhatsQueue(\${q.id})">Excluir</button></div></td>`;
   let patched = html.replace(oldActions, queueActions);
 
   if (!patched.includes('window.editWhatsQueue=')) {
@@ -196,7 +347,6 @@ function patchIndexHtml(html) {
   return patched;
 }
 
-// ── Servir frontend ─────────────────────────────────────────────────────────
 const publicDir = path.join(__dirname, '../public');
 app.use(express.static(publicDir, { maxAge: '1h', index: false }));
 app.get('*', (req, res, next) => {
@@ -207,13 +357,11 @@ app.get('*', (req, res, next) => {
   });
 });
 
-// ── Error handler global ───────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
   console.error('[ERROR]', err.message);
   res.status(err.status || 500).json({ error: err.message || 'Erro interno do servidor' });
 });
 
-// ── Start ──────────────────────────────────────────────────────────────────
 async function start() {
   try {
     await runMigrations();
