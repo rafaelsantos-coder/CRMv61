@@ -5,44 +5,45 @@
 
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const helmet  = require('helmet');
+const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path    = require('path');
+const path = require('path');
+const fs = require('fs');
 
 // ── Valores padrão seguros para variáveis ausentes ─────────────────────────
-process.env.JWT_SECRET     = process.env.JWT_SECRET     || 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis';
-process.env.JWT_EXPIRES    = process.env.JWT_EXPIRES    || '12h';
-process.env.NODE_ENV       = process.env.NODE_ENV       || 'production';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis';
+process.env.JWT_EXPIRES = process.env.JWT_EXPIRES || '12h';
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 process.env.R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'sistema-integrado-sulnet-v1-docs';
 
 const { pool } = require('./config/db');
-const authRoutes      = require('./routes/auth');
-const usersRoutes     = require('./routes/users');
-const oppsRoutes      = require('./routes/opportunities');
-const creditRoutes    = require('./routes/credit');
-const agendaRoutes    = require('./routes/agenda');
-const adminRoutes     = require('./routes/admin');
-const uploadsRoutes   = require('./routes/uploads');
+const authRoutes = require('./routes/auth');
+const usersRoutes = require('./routes/users');
+const oppsRoutes = require('./routes/opportunities');
+const creditRoutes = require('./routes/credit');
+const agendaRoutes = require('./routes/agenda');
+const adminRoutes = require('./routes/admin');
+const uploadsRoutes = require('./routes/uploads');
 const dashboardRoutes = require('./routes/dashboard');
-const chatRoutes      = require('./routes/chat');
+const chatRoutes = require('./routes/chat');
 const chatAdminRoutes = require('./routes/chatAdmin');
-const whatsappRoutes  = require('./routes/whatsapp');
-const webhookRoutes   = require('./routes/webhook');
+const whatsappRoutes = require('./routes/whatsapp');
+const webhookRoutes = require('./routes/webhook');
 const integrationsRoutes = require('./routes/integrations');
 const { authMiddleware } = require('./middleware/auth');
 const { runMigrations } = require('./config/migrate');
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Segurança ──────────────────────────────────────────────────────────────
+// ── Segurança ───────────────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS — aceita qualquer origem se ALLOWED_ORIGINS não estiver configurado
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-  : true; // true = aceita tudo (seguro para primeiro deploy)
+  : true;
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
@@ -64,8 +65,7 @@ app.use('/api/auth/login', rateLimit({
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// ── Health check — SEMPRE responde 200, mesmo sem banco ───────────────────
-// Railway usa este endpoint para saber se o servidor está vivo
+// ── Health check — SEMPRE responde 200, mesmo sem banco ────────────────────
 app.get('/health', async (req, res) => {
   let dbStatus = 'disconnected';
   let dbOk = false;
@@ -76,7 +76,6 @@ app.get('/health', async (req, res) => {
   } catch {
     dbStatus = process.env.DATABASE_URL ? 'error' : 'not_configured';
   }
-  // Retorna 200 sempre — Railway não derruba o container por falta de banco
   res.status(200).json({
     ok: true,
     app: 'Sistema Integrado Sulnet V1',
@@ -99,26 +98,49 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── Rotas da API ───────────────────────────────────────────────────────────
-app.use('/api/auth',         authRoutes);
-app.use('/api/users',        authMiddleware, usersRoutes);
-app.use('/api/opportunities',authMiddleware, oppsRoutes);
-app.use('/api/credit',       authMiddleware, creditRoutes);
-app.use('/api/agenda',       authMiddleware, agendaRoutes);
-app.use('/api/admin',        authMiddleware, adminRoutes);
-app.use('/api/uploads',      authMiddleware, uploadsRoutes);
-app.use('/api/dashboard',    authMiddleware, dashboardRoutes);
-app.use('/api/chat',         authMiddleware, chatRoutes);
-app.use('/api/chat-admin',   authMiddleware, chatAdminRoutes);
-app.use('/api/whatsapp',     authMiddleware, whatsappRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', authMiddleware, usersRoutes);
+app.use('/api/opportunities', authMiddleware, oppsRoutes);
+app.use('/api/credit', authMiddleware, creditRoutes);
+app.use('/api/agenda', authMiddleware, agendaRoutes);
+app.use('/api/admin', authMiddleware, adminRoutes);
+app.use('/api/uploads', authMiddleware, uploadsRoutes);
+app.use('/api/dashboard', authMiddleware, dashboardRoutes);
+app.use('/api/chat', authMiddleware, chatRoutes);
+app.use('/api/chat-admin', authMiddleware, chatAdminRoutes);
+app.use('/api/whatsapp', authMiddleware, whatsappRoutes);
 // Webhooks externos sem JWT. Use token próprio quando configurado.
 app.use('/api/integrations/szchat', integrationsRoutes);
-app.use('/webhook',          webhookRoutes);
+app.use('/webhook', webhookRoutes);
 
-// ── Servir frontend ────────────────────────────────────────────────────────
+function patchIndexHtml(html) {
+  const oldActions = '<td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>';
+  const newActions = '<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(${q.id})">Editar</button><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Excluir</button></div></td>';
+  let patched = html.replace(oldActions, newActions);
+
+  if (!patched.includes('window.editWhatsQueue=')) {
+    const marker = '  window.deleteWhatsQueue=async function(id){';
+    const editFn = `  window.editWhatsQueue=function(id){
+    __whatsV68CState.expanded=id;
+    __whatsV68CState.subtab='conexao';
+    render();
+    setTimeout(()=>document.querySelector('.whats-expand-panel')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+  }`;
+    patched = patched.replace(marker, `${editFn}\n\n${marker}`);
+  }
+
+  return patched;
+}
+
+// ── Servir frontend ─────────────────────────────────────────────────────────
 const publicDir = path.join(__dirname, '../public');
-app.use(express.static(publicDir, { maxAge: '1h' }));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
+app.use(express.static(publicDir, { maxAge: '1h', index: false }));
+app.get('*', (req, res, next) => {
+  fs.readFile(path.join(publicDir, 'index.html'), 'utf8', (err, html) => {
+    if (err) return next(err);
+    res.set('Cache-Control', 'no-store');
+    res.type('html').send(patchIndexHtml(html));
+  });
 });
 
 // ── Error handler global ───────────────────────────────────────────────────
