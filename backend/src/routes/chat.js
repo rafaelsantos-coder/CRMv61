@@ -3,6 +3,8 @@ const { pool } = require('../config/db');
 const { requireRole } = require('../middleware/auth');
 const zapi = require('../services/zapi');
 
+const CLOSED_STATUSES = new Set(['closed', 'lost', 'converted', 'transferred']);
+
 function digitsOnly(raw) {
   return String(raw || '').split('@')[0].replace(/\D/g, '');
 }
@@ -53,6 +55,10 @@ function zapiPhone(raw) {
 
 function isOwner(user, conv) {
   return Number(conv.assigned_user_id) === Number(user.id);
+}
+
+function isClosedConversationStatus(status) {
+  return CLOSED_STATUSES.has(String(status || '').toLowerCase());
 }
 
 async function getOwnedConversation(id, user) {
@@ -118,6 +124,7 @@ async function findConversationByPhone(phone) {
   return rows[0] || null;
 }
 
+// -- CONFIG LEGADA Z-API ---------------------------------------------------
 async function getQueueForNewConversation(queueId, user) {
   if (!queueId) return null;
   const params = [queueId];
@@ -146,10 +153,22 @@ async function getQueueForNewConversation(queueId, user) {
     LIMIT 1
   `, params);
 
-  return rows[0] || null;
+  const queue = rows[0] || null;
+  if (queue?.api_instance_id && queue.api_is_active === false) {
+    await pool.query(
+      `UPDATE api_instances
+          SET is_active=true,
+              status=CASE WHEN status='disabled' THEN 'pending' ELSE status END,
+              updated_at=NOW()
+        WHERE id=$1`,
+      [queue.api_instance_id]
+    ).catch(() => {});
+    queue.api_is_active = true;
+  }
+
+  return queue;
 }
 
-// ── CONFIG LEGADA Z-API ───────────────────────────────────────────────────
 router.get('/config', requireRole(['admin', 'gerencia']), async (req, res) => {
   try {
     const creds = await zapi.getCreds();
@@ -190,7 +209,7 @@ router.post('/config/webhook', requireRole(['admin', 'gerencia']), async (req, r
   } catch (err) { res.status(500).json({ error: 'Erro ao registrar webhook: ' + err.message }); }
 });
 
-// ── CONVERSAS ─────────────────────────────────────────────────────────────
+// -- CONVERSAS -------------------------------------------------------------
 router.get('/conversations', async (req, res) => {
   try {
     await consolidateDuplicateConversations();
@@ -252,15 +271,14 @@ router.post('/conversations', async (req, res) => {
     const queue = await getQueueForNewConversation(Number(queueId), req.user);
     if (!queue) return res.status(404).json({ error: 'Fila não encontrada, inativa ou sem acesso para este usuário.' });
     if (!queue.api_instance_id) return res.status(400).json({ error: 'Esta fila não possui instância Z-API vinculada.' });
-    if (queue.api_is_active === false) return res.status(400).json({ error: 'A instância Z-API desta fila está desativada.' });
-
     const normalized = canonicalPhone(phone);
     const targetPhone = zapiPhone(phone);
     let conv = await findConversationByPhone(phone);
 
     if (conv) {
-      if (conv.assigned_user_id && Number(conv.assigned_user_id) !== Number(req.user.id)) {
-        return res.status(403).json({ error: 'Este número já está em atendimento com outro usuário.' });
+      const assignedToOther = conv.assigned_user_id && Number(conv.assigned_user_id) !== Number(req.user.id);
+      if (assignedToOther && !isClosedConversationStatus(conv.status)) {
+        return res.status(409).json({ error: 'Este número já está em atendimento com outro usuário.' });
       }
       const { rows } = await pool.query(
         `UPDATE conversations
@@ -314,7 +332,7 @@ router.patch('/conversations/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Erro ao atualizar conversa: ' + err.message }); }
 });
 
-// ── TRANSFERÊNCIA ─────────────────────────────────────────────────────────
+// -- TRANSFERENCIA ---------------------------------------------------------
 router.post('/conversations/:id/transfer', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -355,7 +373,7 @@ router.post('/conversations/:id/transfer', async (req, res) => {
   } finally { client.release(); }
 });
 
-// ── PAINEL LATERAL ────────────────────────────────────────────────────────
+// -- PAINEL LATERAL --------------------------------------------------------
 router.get('/conversations/:id/panel', async (req, res) => {
   try {
     const owned = await getOwnedConversation(req.params.id, req.user);
@@ -369,7 +387,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
          FROM opportunities o
          LEFT JOIN users u ON u.id = o.assigned_user_id
          LEFT JOIN funnels f ON f.id = o.funnel_id
-         LEFT JOIN stages s ON s.id = o.stage_id
+         LEFT JOIN stages s ON s.funnel_id = f.id
          LEFT JOIN products p ON p.id = o.product_id
          LEFT JOIN categories c ON c.id = p.category_id
          WHERE o.id = $1`,
@@ -383,7 +401,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
          FROM opportunities o
          LEFT JOIN users u ON u.id = o.assigned_user_id
          LEFT JOIN funnels f ON f.id = o.funnel_id
-         LEFT JOIN stages s ON s.id = o.stage_id
+         LEFT JOIN stages s ON s.funnel_id = f.id
          WHERE o.client_phone = ANY($1::text[]) OR o.client_cpf = ANY($1::text[])
          ORDER BY o.created_at DESC LIMIT 1`,
         [variants]
@@ -408,7 +426,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Erro ao buscar painel: ' + err.message }); }
 });
 
-// ── MENSAGENS ─────────────────────────────────────────────────────────────
+// -- MENSAGENS -------------------------------------------------------------
 router.get('/conversations/:id/messages/new', async (req, res) => {
   try {
     const owned = await getOwnedConversation(req.params.id, req.user);
@@ -419,7 +437,7 @@ router.get('/conversations/:id/messages/new', async (req, res) => {
        FROM chat_messages m
        LEFT JOIN users u ON u.id = m.sender_id
        WHERE m.conversation_id = $1 AND m.id > $2
-         AND (m.msg_type <> 'unsupported' OR NULLIF(m.text_content,'') IS NOT NULL)
+         AND (m.msg_type <> 'unsupported' OR NULLIF(NULLIF(m.text_content,''),'unsupported') IS NOT NULL)
        ORDER BY m.sent_at ASC, m.id ASC`,
       [req.params.id, since]
     );
@@ -446,7 +464,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
       LEFT JOIN users u ON u.id = m.sender_id
       WHERE m.conversation_id = $1
         AND m.sent_at >= NOW() - INTERVAL '${historyDays} days'
-        AND (m.msg_type <> 'unsupported' OR NULLIF(m.text_content,'') IS NOT NULL)
+        AND (m.msg_type <> 'unsupported' OR NULLIF(NULLIF(m.text_content,''),'unsupported') IS NOT NULL)
     `;
     const params = [req.params.id];
     let p = 2;
