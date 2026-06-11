@@ -388,7 +388,7 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
 .c68-av{width:44px!important;height:44px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
 .c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:4px!important}.c68-itime{color:#94a3b8!important}
 .c68-ibadge{background:#ff4f1f!important;color:white!important}.c68-istatus.open,.c68-istatus.in_attendance{background:#22c55e!important}
-#c68-mid{background:#0b1018!important;position:relative!important;flex:0 0 620px!important;max-width:620px!important;min-width:620px!important}
+#c68-mid{background:#0b1018!important;position:relative!important;flex:0 0 420px!important;max-width:420px!important;min-width:420px!important}
 #c68-empty{background:radial-gradient(circle at center,rgba(34,197,94,.08),transparent 36%),#0b1018!important;color:#94a3b8!important}
 #c68-empty span{font-size:58px!important;opacity:.22!important}#c68-empty p{color:#dbeafe!important;font-size:15px!important;font-weight:700!important}
 #c68-head{height:64px!important;padding:0 18px!important;background:#111722!important;border-bottom:1px solid #253044!important}
@@ -413,6 +413,10 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
   patched = patched.replace(
     "    if(!r) return;\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    _c68openConv(r.id,user);",
     "    if(!r){ alert(window.__chat68LastError||'Não foi possível abrir o atendimento.'); return; }\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    if(!CS.convs.some(c=>Number(c.id)===Number(r.id))){\n      CS.convs.unshift(r);\n      CS.filtered=CS.convs;\n      _c68renderList(user);\n    }\n    _c68openConv(r.id,user);"
+  );
+  patched = patched.replace(
+    "  const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);\n  if(msg){",
+    "  const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);\n  if(!msg){\n    if(snd){snd.disabled=false;snd.innerHTML='➤';}\n    alert(window.__chat68LastError||'Não foi possível enviar a mensagem.');\n    return;\n  }\n  if(msg){"
   );
   if (!patched.includes('window.editWhatsQueue=')) {
     const marker = '  window.deleteWhatsQueue=async function(id){';
