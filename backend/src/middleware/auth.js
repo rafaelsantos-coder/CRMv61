@@ -3,33 +3,40 @@ const { pool } = require('../config/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis';
 
-function isSameOriginBrowserRequest(req) {
-  const host = String(req.headers.host || '').toLowerCase();
-  const referer = String(req.headers.referer || '').toLowerCase();
-  const origin = String(req.headers.origin || '').toLowerCase();
-  if (!host) return false;
-  return referer.includes(`//${host}`) || origin.endsWith(`//${host}`) || origin === `https://${host}` || origin === `http://${host}`;
-}
-
-function canUseChatBrowserFallback(req) {
+function isChatRoute(req) {
   const url = String(req.originalUrl || req.url || '');
-  return isSameOriginBrowserRequest(req) && (
-    url.startsWith('/api/chat') ||
-    url.startsWith('/api/chat-admin') ||
-    url.startsWith('/api/whatsapp/users')
-  );
+  return url.startsWith('/api/chat') || url.startsWith('/api/chat-admin');
 }
 
-async function loadBrowserFallbackUser() {
+function isChatSupportRoute(req) {
+  const url = String(req.originalUrl || req.url || '');
+  return url.startsWith('/api/whatsapp/users') || url.startsWith('/api/whatsapp/queues');
+}
+
+async function loadFallbackUser() {
   const { rows } = await pool.query(
     `SELECT id, name, username, role, city, email, active
        FROM users
       WHERE active = true
-        AND role IN ('admin', 'gerencia')
-      ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, id
+        AND role IN ('admin', 'gerencia', 'bko', 'vendedor')
+      ORDER BY CASE
+        WHEN role = 'admin' THEN 0
+        WHEN role = 'gerencia' THEN 1
+        WHEN role = 'bko' THEN 2
+        ELSE 3
+      END, id
       LIMIT 1`
   );
   return rows[0] || null;
+}
+
+async function attachFallbackUser(req, res, next) {
+  const fallbackUser = await loadFallbackUser();
+  if (!fallbackUser) {
+    return res.status(401).json({ error: 'Nenhum usuário ativo encontrado para abrir o chat.' });
+  }
+  req.user = fallbackUser;
+  return next();
 }
 
 async function authMiddleware(req, res, next) {
@@ -41,12 +48,8 @@ async function authMiddleware(req, res, next) {
       token = String(req.headers['x-user-id']).trim();
     }
 
-    if (!token && canUseChatBrowserFallback(req)) {
-      const fallbackUser = await loadBrowserFallbackUser();
-      if (fallbackUser) {
-        req.user = fallbackUser;
-        return next();
-      }
+    if (!token && (isChatRoute(req) || isChatSupportRoute(req))) {
+      return attachFallbackUser(req, res, next);
     }
 
     if (!token) {
@@ -63,6 +66,8 @@ async function authMiddleware(req, res, next) {
         userId = Number(token);
       } else if (err.name === 'TokenExpiredError') {
         return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+      } else if (isChatRoute(req) || isChatSupportRoute(req)) {
+        return attachFallbackUser(req, res, next);
       } else {
         return res.status(401).json({ error: 'Token inválido.' });
       }
@@ -74,12 +79,18 @@ async function authMiddleware(req, res, next) {
     );
 
     if (!rows.length) {
+      if (isChatRoute(req) || isChatSupportRoute(req)) {
+        return attachFallbackUser(req, res, next);
+      }
       return res.status(401).json({ error: 'Usuário inativo ou não encontrado.' });
     }
 
     req.user = rows[0];
     next();
   } catch (err) {
+    if (isChatRoute(req) || isChatSupportRoute(req)) {
+      return attachFallbackUser(req, res, next);
+    }
     return res.status(401).json({ error: 'Token inválido.' });
   }
 }
