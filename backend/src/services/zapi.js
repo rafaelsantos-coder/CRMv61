@@ -1,6 +1,6 @@
 /**
- * Serviço Z-API — comunicação centralizada com WhatsApp.
- * A documentação oficial usa base https://api.z-api.io e paths
+ * Servico Z-API - comunicacao centralizada com WhatsApp.
+ * A documentacao oficial usa base https://api.z-api.io e paths
  * /instances/{instanceId}/token/{token}/...
  */
 
@@ -28,7 +28,7 @@ async function getCreds(apiInstanceId = null) {
       };
     }
   } catch {
-    // migration 003/004 pode ainda não ter sido aplicada
+    // migration 003/004 pode ainda nao ter sido aplicada
   }
 
   const { rows } = await pool.query('SELECT * FROM zapi_config ORDER BY id DESC LIMIT 1');
@@ -76,7 +76,12 @@ async function registerWebhook(creds, webhookUrl) {
     body: JSON.stringify({ value: webhookUrl }),
   });
 
-  // Diferentes contas/documentações podem usar nomes distintos. Mantemos tentativas não fatais.
+  await zapiRequest(creds, '/update-notify-sent-by-me', {
+    method: 'PUT',
+    body: JSON.stringify({ notifySentByMe: true }),
+  }).catch(() => {});
+
+  // Diferentes contas/documentacoes podem usar nomes distintos. Mantemos tentativas nao fatais.
   await zapiRequest(creds, '/update-webhook-message-status', {
     method: 'PUT',
     body: JSON.stringify({ value: webhookUrl }),
@@ -207,7 +212,7 @@ function resolvePhone(payload = {}) {
     const d = realPhoneCandidate(c);
     if (d) return d;
   }
-  // fallback para LID/dígitos; será resolvido por alias no backend
+  // fallback para LID/digitos; sera resolvido por alias no backend
   return normalizePhone(payload.phone || payload.senderLid || payload.chatLid || payload.remoteJid || '');
 }
 
@@ -226,12 +231,30 @@ async function findApiInstanceFromPayload(payload = {}) {
   try {
     if (possible) {
       const { rows } = await pool.query(
-        `SELECT * FROM api_instances
-         WHERE is_active = true AND instance_id = $1
+        `SELECT ai.*,
+                EXISTS (
+                  SELECT 1 FROM attendance_queues q
+                  WHERE q.api_instance_id = ai.id AND q.is_active = true
+                ) AS has_active_queue
+         FROM api_instances ai
+         WHERE ai.instance_id = $1
          ORDER BY id DESC LIMIT 1`,
         [String(possible)]
       );
-      if (rows[0]) return rows[0];
+      if (rows[0]) {
+        if (rows[0].has_active_queue && rows[0].is_active === false) {
+          await pool.query(
+            `UPDATE api_instances
+                SET is_active=true,
+                    status=CASE WHEN status='disabled' THEN 'pending' ELSE status END,
+                    updated_at=NOW()
+              WHERE id=$1`,
+            [rows[0].id]
+          ).catch(() => {});
+          rows[0].is_active = true;
+        }
+        return rows[0];
+      }
     }
 
     const { rows } = await pool.query(
@@ -243,7 +266,6 @@ async function findApiInstanceFromPayload(payload = {}) {
   }
 }
 
-
 async function registerEveryWebhook(creds, webhookUrl) {
   try {
     return await zapiRequest(creds, '/update-every-webhooks', {
@@ -254,7 +276,7 @@ async function registerEveryWebhook(creds, webhookUrl) {
       }),
     });
   } catch (err) {
-    // Fallback para contas/documentações que usam configuração por evento.
+    // Fallback para contas/documentacoes que usam configuracao por evento.
     await registerWebhook(creds, webhookUrl);
     return { ok: true, fallback: true };
   }
