@@ -3,8 +3,6 @@ const { pool } = require('../config/db');
 const { requireRole } = require('../middleware/auth');
 const zapi = require('../services/zapi');
 
-const CLOSED_STATUSES = new Set(['closed', 'lost', 'converted', 'transferred']);
-
 function digitsOnly(raw) {
   return String(raw || '').split('@')[0].replace(/\D/g, '');
 }
@@ -57,14 +55,10 @@ function isOwner(user, conv) {
   return Number(conv.assigned_user_id) === Number(user.id);
 }
 
-function isClosedConversationStatus(status) {
-  return CLOSED_STATUSES.has(String(status || '').toLowerCase());
-}
-
 async function getOwnedConversation(id, user) {
   const { rows } = await pool.query('SELECT * FROM conversations WHERE id=$1', [id]);
   const conv = rows[0];
-  if (!conv) return { error: [404, 'Conversa nÃ£o encontrada.'] };
+  if (!conv) return { error: [404, 'Conversa não encontrada.'] };
   if (!isOwner(user, conv)) return { error: [403, 'Esta conversa pertence a outro atendente.'] };
   return { conv };
 }
@@ -124,45 +118,7 @@ async function findConversationByPhone(phone) {
   return rows[0] || null;
 }
 
-async function getSendCredentialCandidates(conv) {
-  const candidates = [];
-  const seen = new Set();
-
-  const pushCreds = (creds) => {
-    if (!creds?.instance_id || !creds?.token) return;
-    const key = `${creds.instance_id}::${creds.token}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    candidates.push(creds);
-  };
-
-  let queueApiInstanceId = null;
-  if (conv.queue_id) {
-    const { rows } = await pool.query(
-      `SELECT q.api_instance_id
-         FROM attendance_queues q
-        WHERE q.id = $1
-        LIMIT 1`,
-      [conv.queue_id]
-    ).catch(() => ({ rows: [] }));
-    queueApiInstanceId = rows[0]?.api_instance_id || null;
-  }
-
-  if (queueApiInstanceId) {
-    pushCreds(await zapi.getCreds(queueApiInstanceId).catch(() => null));
-  }
-  if (conv.api_instance_id && Number(conv.api_instance_id) !== Number(queueApiInstanceId || 0)) {
-    pushCreds(await zapi.getCreds(conv.api_instance_id).catch(() => null));
-  }
-  for (const creds of await zapi.listCredsCandidates().catch(() => [])) {
-    pushCreds(creds);
-  }
-  pushCreds(await zapi.getCreds().catch(() => null));
-
-  return { candidates, queueApiInstanceId };
-}
-
-// â”€â”€ CONFIG LEGADA Z-API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── CONFIG LEGADA Z-API ───────────────────────────────────────────────────
 async function getQueueForNewConversation(queueId, user) {
   if (!queueId) return null;
   const params = [queueId];
@@ -191,20 +147,7 @@ async function getQueueForNewConversation(queueId, user) {
     LIMIT 1
   `, params);
 
-  const queue = rows[0] || null;
-  if (queue?.api_instance_id && queue.api_is_active === false) {
-    await pool.query(
-      `UPDATE api_instances
-          SET is_active=true,
-              status=CASE WHEN status='disabled' THEN 'pending' ELSE status END,
-              updated_at=NOW()
-        WHERE id=$1`,
-      [queue.api_instance_id]
-    ).catch(() => {});
-    queue.api_is_active = true;
-  }
-
-  return queue;
+  return rows[0] || null;
 }
 
 router.get('/config', requireRole(['admin', 'gerencia']), async (req, res) => {
@@ -212,34 +155,34 @@ router.get('/config', requireRole(['admin', 'gerencia']), async (req, res) => {
     const creds = await zapi.getCreds();
     if (!creds) return res.json({ configured: false });
     res.json({ configured: true, instanceId: creds.instance_id, webhookUrl: creds.webhook_url, name: creds.name });
-  } catch { res.status(500).json({ error: 'Erro ao buscar configuraÃ§Ã£o.' }); }
+  } catch { res.status(500).json({ error: 'Erro ao buscar configuração.' }); }
 });
 
 router.post('/config', requireRole(['admin', 'gerencia']), async (req, res) => {
   try {
     const { instanceId, token, clientToken = '' } = req.body;
-    if (!instanceId || !token) return res.status(400).json({ error: 'ID da instÃ¢ncia e token sÃ£o obrigatÃ³rios.' });
-    const creds = zapi.sanitizeCreds({ instance_id: instanceId, token, client_token: clientToken });
+    if (!instanceId || !token) return res.status(400).json({ error: 'ID da instância e token são obrigatórios.' });
+    const creds = { instance_id: instanceId, token, client_token: clientToken };
     const status = await zapi.checkStatus(creds);
     await pool.query(
       `INSERT INTO zapi_config (instance_id, token, client_token, updated_at) VALUES ($1,$2,$3,NOW())
        ON CONFLICT (id) DO UPDATE SET instance_id=$1, token=$2, client_token=$3, updated_at=NOW()`,
-      [creds.instance_id, creds.token, creds.client_token]
+      [instanceId, token, clientToken]
     );
     await pool.query(
       `INSERT INTO api_instances (name, provider, instance_id, token, client_token, status, is_active, updated_at)
-       VALUES ('Bot Z-API PadrÃ£o','Z-API',$1,$2,$3,$4,true,NOW())
+       VALUES ('Bot Z-API Padrão','Z-API',$1,$2,$3,$4,true,NOW())
        ON CONFLICT (provider, instance_id) DO UPDATE SET token=$2, client_token=$3, status=$4, is_active=true, updated_at=NOW()`,
-      [creds.instance_id, creds.token, creds.client_token, status.connected || status.smartphoneConnected ? 'connected' : 'disconnected']
+      [instanceId, token, clientToken, status.connected || status.smartphoneConnected ? 'connected' : 'disconnected']
     );
     res.json({ ok: true, connected: status.connected, smartphoneConnected: status.smartphoneConnected });
-  } catch (err) { res.status(400).json({ error: 'Erro ao salvar configuraÃ§Ã£o: ' + err.message }); }
+  } catch (err) { res.status(400).json({ error: 'Erro ao salvar configuração: ' + err.message }); }
 });
 
 router.post('/config/webhook', requireRole(['admin', 'gerencia']), async (req, res) => {
   try {
     const creds = await zapi.getCreds();
-    if (!creds) return res.status(400).json({ error: 'Z-API nÃ£o configurada.' });
+    if (!creds) return res.status(400).json({ error: 'Z-API não configurada.' });
     const webhookUrl = `${req.protocol}://${req.get('host')}/webhook`;
     await zapi.registerWebhook(creds, webhookUrl);
     await pool.query('UPDATE zapi_config SET webhook_url=$1, updated_at=NOW()', [webhookUrl]).catch(() => {});
@@ -247,7 +190,7 @@ router.post('/config/webhook', requireRole(['admin', 'gerencia']), async (req, r
   } catch (err) { res.status(500).json({ error: 'Erro ao registrar webhook: ' + err.message }); }
 });
 
-// â”€â”€ CONVERSAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── CONVERSAS ─────────────────────────────────────────────────────────────
 router.get('/conversations', async (req, res) => {
   try {
     await consolidateDuplicateConversations();
@@ -265,13 +208,13 @@ router.get('/conversations', async (req, res) => {
                 NULLIF(NULLIF(cm.text_content,''),'unsupported'),
                 CASE cm.msg_type
                   WHEN 'image'    THEN 'Imagem'
-                  WHEN 'audio'    THEN 'Audio'
-                  WHEN 'video'    THEN 'Video'
+                  WHEN 'audio'    THEN 'Áudio'
+                  WHEN 'video'    THEN 'Vídeo'
                   WHEN 'document' THEN 'Documento'
                   WHEN 'sticker'  THEN 'Figurinha'
-                  WHEN 'location' THEN 'Localizacao'
+                  WHEN 'location' THEN 'Localização'
                   WHEN 'contact'  THEN 'Contato'
-                  WHEN 'reaction' THEN 'Reacao'
+                  WHEN 'reaction' THEN 'Reação'
                   ELSE 'Mensagem'
                 END)
               FROM chat_messages cm
@@ -303,20 +246,21 @@ router.get('/conversations', async (req, res) => {
 router.post('/conversations', async (req, res) => {
   try {
     const { phone, clientName, queueId } = req.body;
-    if (!phone) return res.status(400).json({ error: 'NÃºmero Ã© obrigatÃ³rio.' });
+    if (!phone) return res.status(400).json({ error: 'Número é obrigatório.' });
     if (!queueId) return res.status(400).json({ error: 'Selecione a fila de atendimento.' });
 
     const queue = await getQueueForNewConversation(Number(queueId), req.user);
-    if (!queue) return res.status(404).json({ error: 'Fila nÃ£o encontrada, inativa ou sem acesso para este usuÃ¡rio.' });
-    if (!queue.api_instance_id) return res.status(400).json({ error: 'Esta fila nÃ£o possui instÃ¢ncia Z-API vinculada.' });
+    if (!queue) return res.status(404).json({ error: 'Fila não encontrada, inativa ou sem acesso para este usuário.' });
+    if (!queue.api_instance_id) return res.status(400).json({ error: 'Esta fila não possui instância Z-API vinculada.' });
+    if (queue.api_is_active === false) return res.status(400).json({ error: 'A instância Z-API desta fila está desativada.' });
+
     const normalized = canonicalPhone(phone);
     const targetPhone = zapiPhone(phone);
     let conv = await findConversationByPhone(phone);
 
     if (conv) {
-      const assignedToOther = conv.assigned_user_id && Number(conv.assigned_user_id) !== Number(req.user.id);
-      if (assignedToOther && !isClosedConversationStatus(conv.status)) {
-        return res.status(409).json({ error: 'Este nÃºmero jÃ¡ estÃ¡ em atendimento com outro usuÃ¡rio.' });
+      if (conv.assigned_user_id && Number(conv.assigned_user_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Este número já está em atendimento com outro usuário.' });
       }
       const { rows } = await pool.query(
         `UPDATE conversations
@@ -365,12 +309,12 @@ router.patch('/conversations/:id', async (req, res) => {
     if (updates.length === 1) return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
     params.push(req.params.id);
     const { rows } = await pool.query(`UPDATE conversations SET ${updates.join(',')} WHERE id=$${p} RETURNING *`, params);
-    if (!rows.length) return res.status(404).json({ error: 'Conversa nÃ£o encontrada.' });
+    if (!rows.length) return res.status(404).json({ error: 'Conversa não encontrada.' });
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: 'Erro ao atualizar conversa: ' + err.message }); }
 });
 
-// â”€â”€ TRANSFERÃŠNCIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── TRANSFERÊNCIA ─────────────────────────────────────────────────────────
 router.post('/conversations/:id/transfer', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -378,26 +322,9 @@ router.post('/conversations/:id/transfer', async (req, res) => {
     const { toUserId, toQueueId, reason } = req.body;
     const convId = req.params.id;
     const { rows: convRows } = await client.query('SELECT * FROM conversations WHERE id=$1', [convId]);
-    if (!convRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Conversa nÃ£o encontrada.' }); }
+    if (!convRows.length) return res.status(404).json({ error: 'Conversa não encontrada.' });
     const conv = convRows[0];
-    if (!isOwner(req.user, conv)) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Esta conversa pertence a outro atendente.' }); }
-
-    if (toUserId) {
-      await expireStaleAgentLogins();
-      const targetQueueId = toQueueId || conv.queue_id || null;
-      const params = [toUserId];
-      let queueFilter = '';
-      if (targetQueueId) { params.push(targetQueueId); queueFilter = ' AND queue_id=$2'; }
-      const { rows: logged } = await client.query(
-        `SELECT 1 FROM chat_agent_logins
-          WHERE user_id=$1 AND is_logged_in=true${queueFilter} LIMIT 1`,
-        params
-      );
-      if (!logged.length) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Este atendente nao esta logado no chat desta fila. A transferencia so e permitida para atendentes logados (botao Entrar na tela do chat).' });
-      }
-    }
+    if (!isOwner(req.user, conv)) return res.status(403).json({ error: 'Esta conversa pertence a outro atendente.' });
 
     await client.query(
       `INSERT INTO chat_transfers
@@ -428,7 +355,7 @@ router.post('/conversations/:id/transfer', async (req, res) => {
   } finally { client.release(); }
 });
 
-// â”€â”€ PAINEL LATERAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── PAINEL LATERAL ────────────────────────────────────────────────────────
 router.get('/conversations/:id/panel', async (req, res) => {
   try {
     const owned = await getOwnedConversation(req.params.id, req.user);
@@ -481,7 +408,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Erro ao buscar painel: ' + err.message }); }
 });
 
-// â”€â”€ MENSAGENS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── MENSAGENS ─────────────────────────────────────────────────────────────
 router.get('/conversations/:id/messages/new', async (req, res) => {
   try {
     const owned = await getOwnedConversation(req.params.id, req.user);
@@ -491,8 +418,8 @@ router.get('/conversations/:id/messages/new', async (req, res) => {
       `SELECT m.*, u.name AS sender_user_name
        FROM chat_messages m
        LEFT JOIN users u ON u.id = m.sender_id
-      WHERE m.conversation_id = $1 AND m.id > $2
-         AND (m.msg_type <> 'unsupported' OR NULLIF(NULLIF(m.text_content,''),'unsupported') IS NOT NULL)
+       WHERE m.conversation_id = $1 AND m.id > $2
+         AND (m.msg_type <> 'unsupported' OR NULLIF(m.text_content,'') IS NOT NULL)
        ORDER BY m.sent_at ASC, m.id ASC`,
       [req.params.id, since]
     );
@@ -519,7 +446,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
       LEFT JOIN users u ON u.id = m.sender_id
       WHERE m.conversation_id = $1
         AND m.sent_at >= NOW() - INTERVAL '${historyDays} days'
-        AND (m.msg_type <> 'unsupported' OR NULLIF(NULLIF(m.text_content,''),'unsupported') IS NOT NULL)
+        AND (m.msg_type <> 'unsupported' OR NULLIF(m.text_content,'') IS NOT NULL)
     `;
     const params = [req.params.id];
     let p = 2;
@@ -539,75 +466,40 @@ router.post('/conversations/:id/messages', async (req, res) => {
     if (owned.error) return res.status(owned.error[0]).json({ error: owned.error[1] });
     const conv = owned.conv;
 
-    const { candidates, queueApiInstanceId } = await getSendCredentialCandidates(conv);
-    if (!candidates.length) return res.status(400).json({ error: 'Z-API nÃ£o configurada para esta conversa.' });
+    let creds = null;
+    if (conv.api_instance_id) creds = await zapi.getCreds(conv.api_instance_id).catch(() => null);
+    if (!creds) creds = await zapi.getCreds().catch(() => null);
+    if (!creds) return res.status(400).json({ error: 'Z-API não configurada para esta conversa.' });
 
     const targetPhone = zapiPhone(conv.phone || conv.phone_normalized);
-    const sendWithCreds = async (activeCreds) => {
-      if (type === 'text') {
-        if (!text?.trim()) throw new Error('Texto Ã© obrigatÃ³rio.');
-        return zapi.sendText(activeCreds, targetPhone, text.trim());
-      }
-      if (type === 'image') return zapi.sendImage(activeCreds, targetPhone, base64, caption);
-      if (type === 'audio') return zapi.sendAudio(activeCreds, targetPhone, base64);
-      if (type === 'document') return zapi.sendDocument(activeCreds, targetPhone, base64, fileName, caption);
-      throw new Error(`Tipo '${type}' nÃ£o suportado.`);
-    };
-
-    let zapiResult = null;
-    let activeCreds = null;
-    const attemptErrors = [];
-    for (const creds of candidates) {
-      try {
-        zapiResult = await sendWithCreds(creds);
-        activeCreds = creds;
-        break;
-      } catch (sendErr) {
-        attemptErrors.push({ instanceId: creds.instance_id, message: sendErr.message });
-        if (/obrigat|suportado/i.test(sendErr.message)) throw sendErr;
-      }
-    }
-    if (!zapiResult) {
-      const detail = attemptErrors
-        .map(a => `${zapi.maskCred(a.instanceId)} → ${a.message}`)
-        .join(' | ');
-      const allInstanceNotFound = attemptErrors.length > 0 &&
-        attemptErrors.every(a => /instance not found/i.test(a.message));
-      const hint = allInstanceNotFound
-        ? 'Nenhuma instância Z-API cadastrada existe mais no painel da Z-API. Abra Administração > Atendimento > Filas, edite a fila desta conversa e salve o ID da instância e o token atuais (copie do painel da Z-API). '
-        : '';
-      throw new Error(`${hint}Falha em todas as instâncias: ${detail || 'nenhuma credencial disponível'}`);
+    let zapiResult;
+    if (type === 'text') {
+      if (!text?.trim()) return res.status(400).json({ error: 'Texto é obrigatório.' });
+      zapiResult = await zapi.sendText(creds, targetPhone, text.trim());
+    } else if (type === 'image') {
+      zapiResult = await zapi.sendImage(creds, targetPhone, base64, caption);
+    } else if (type === 'audio') {
+      zapiResult = await zapi.sendAudio(creds, targetPhone, base64);
+    } else if (type === 'document') {
+      zapiResult = await zapi.sendDocument(creds, targetPhone, base64, fileName, caption);
+    } else {
+      return res.status(400).json({ error: `Tipo '${type}' não suportado.` });
     }
 
     const zapiMessageId = zapiResult?.messageId || zapiResult?.zaapId || null;
-    // Guarda o base64 enviado como media_url para a mensagem aparecer/tocar no
-    // chat imediatamente; o webhook da Z-API troca depois pela URL hospedada.
-    const mediaToStore = type !== 'text' && base64 ? base64 : null;
     const { rows: msgRows } = await pool.query(
       `INSERT INTO chat_messages
          (conversation_id, zapi_message_id, from_me, sender_id, sender_name,
           msg_type, text_content, media_url, file_name, caption, status, sent_at)
        VALUES ($1,$2,true,$3,$4,$5,$6,$7,$8,$9,'SENT',NOW()) RETURNING *`,
-      [conv.id, zapiMessageId, user.id, user.name, type, type === 'text' ? text.trim() : null, mediaToStore, fileName || null, caption || null]
+      [conv.id, zapiMessageId, user.id, user.name, type, type === 'text' ? text.trim() : null, null, fileName || null, caption || null]
     );
 
     await pool.query(
       `UPDATE conversations
-          SET phone=$2,
-              phone_normalized=$3,
-              api_instance_id=COALESCE($4, api_instance_id),
-              last_message_at=NOW(),
-              status='in_attendance',
-              assigned_user_id=$5,
-              updated_at=NOW()
+          SET phone=$2, phone_normalized=$3, last_message_at=NOW(), status='in_attendance', assigned_user_id=$4, updated_at=NOW()
         WHERE id=$1`,
-      [
-        conv.id,
-        targetPhone,
-        canonicalPhone(targetPhone),
-        activeCreds?.id || queueApiInstanceId || conv.api_instance_id || null,
-        user.id,
-      ]
+      [conv.id, targetPhone, canonicalPhone(targetPhone), user.id]
     );
 
     res.status(201).json(msgRows[0]);
@@ -615,149 +507,6 @@ router.post('/conversations/:id/messages', async (req, res) => {
     console.error('[CHAT] Erro ao enviar:', err.message);
     res.status(500).json({ error: 'Erro ao enviar mensagem: ' + err.message });
   }
-});
-
-// ── LOGIN DO ATENDENTE NO CHAT ───────────────────────────────────────────────
-// O login vale apenas enquanto a sessao do sistema esta aberta: o navegador
-// renova last_seen_at via heartbeat; sem renovacao por AGENT_OFFLINE_MINUTES,
-// o login expira e o atendente precisa clicar em Entrar novamente.
-const AGENT_OFFLINE_MINUTES = 2;
-
-async function expireStaleAgentLogins() {
-  await pool.query(
-    `UPDATE chat_agent_logins
-        SET is_logged_in = false, logged_out_at = NOW(), updated_at = NOW()
-      WHERE is_logged_in = true
-        AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '${AGENT_OFFLINE_MINUTES} minutes')`
-  ).catch(() => {});
-}
-
-async function userHasQueueAccess(user, queueId) {
-  if (['admin', 'gerencia', 'bko'].includes(user.role)) return true;
-  const { rows } = await pool.query(
-    'SELECT 1 FROM queue_users WHERE queue_id=$1 AND user_id=$2 AND is_active=true LIMIT 1',
-    [queueId, user.id]
-  );
-  return rows.length > 0;
-}
-
-router.get('/agent-status', async (req, res) => {
-  try {
-    await expireStaleAgentLogins();
-    const params = [req.user.id];
-    let query = `
-      SELECT q.id, q.name,
-             COALESCE(al.is_logged_in, false) AS is_logged_in,
-             al.logged_in_at
-      FROM attendance_queues q
-      LEFT JOIN chat_agent_logins al ON al.queue_id = q.id AND al.user_id = $1
-      WHERE q.is_active = true`;
-    if (!['admin', 'gerencia', 'bko'].includes(req.user.role)) {
-      query += ` AND q.id IN (SELECT queue_id FROM queue_users WHERE user_id=$1 AND is_active=true)`;
-    }
-    query += ' ORDER BY q.name';
-    const { rows } = await pool.query(query, params);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: 'Erro ao buscar status do atendente: ' + err.message }); }
-});
-
-router.post('/agent-login', async (req, res) => {
-  try {
-    const queueId = Number(req.body?.queueId);
-    if (!queueId) return res.status(400).json({ error: 'Informe a fila.' });
-    if (!await userHasQueueAccess(req.user, queueId)) {
-      return res.status(403).json({ error: 'Voce nao tem acesso a esta fila.' });
-    }
-    await pool.query(
-      `INSERT INTO chat_agent_logins (user_id, queue_id, is_logged_in, logged_in_at, last_seen_at, updated_at)
-       VALUES ($1,$2,true,NOW(),NOW(),NOW())
-       ON CONFLICT (user_id, queue_id)
-       DO UPDATE SET is_logged_in=true, logged_in_at=NOW(), last_seen_at=NOW(), updated_at=NOW()`,
-      [req.user.id, queueId]
-    );
-    res.json({ ok: true, queueId, loggedIn: true });
-  } catch (err) { res.status(500).json({ error: 'Erro ao entrar na fila: ' + err.message }); }
-});
-
-// Renova a presenca do atendente enquanto o sistema esta aberto no navegador.
-router.post('/agent-heartbeat', async (req, res) => {
-  try {
-    await pool.query(
-      `UPDATE chat_agent_logins
-          SET last_seen_at=NOW(), updated_at=NOW()
-        WHERE user_id=$1 AND is_logged_in=true`,
-      [req.user.id]
-    );
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Erro no heartbeat: ' + err.message }); }
-});
-
-// Desloga o atendente de todas as filas (usado no logout do sistema).
-router.post('/agent-logout-all', async (req, res) => {
-  try {
-    await pool.query(
-      `UPDATE chat_agent_logins
-          SET is_logged_in=false, logged_out_at=NOW(), updated_at=NOW()
-        WHERE user_id=$1 AND is_logged_in=true`,
-      [req.user.id]
-    );
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Erro ao deslogar do chat: ' + err.message }); }
-});
-
-router.post('/agent-logout', async (req, res) => {
-  try {
-    const queueId = Number(req.body?.queueId);
-    if (!queueId) return res.status(400).json({ error: 'Informe a fila.' });
-    await pool.query(
-      `UPDATE chat_agent_logins
-          SET is_logged_in=false, logged_out_at=NOW(), updated_at=NOW()
-        WHERE user_id=$1 AND queue_id=$2`,
-      [req.user.id, queueId]
-    );
-    res.json({ ok: true, queueId, loggedIn: false });
-  } catch (err) { res.status(500).json({ error: 'Erro ao sair da fila: ' + err.message }); }
-});
-
-// Atendentes logados (para o modal de transferencia). queueId opcional.
-router.get('/logged-users', async (req, res) => {
-  try {
-    await expireStaleAgentLogins();
-    const queueId = req.query.queueId ? Number(req.query.queueId) : null;
-    const params = [];
-    let where = 'al.is_logged_in = true AND u.active = true';
-    if (queueId) { params.push(queueId); where += ` AND al.queue_id = $1`; }
-    const { rows } = await pool.query(
-      `SELECT DISTINCT u.id, u.name, u.role
-         FROM chat_agent_logins al
-         JOIN users u ON u.id = al.user_id
-        WHERE ${where}
-        ORDER BY u.name`,
-      params
-    );
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: 'Erro ao buscar atendentes logados: ' + err.message }); }
-});
-
-// Leads criadas automaticamente pelo webhook do chat, para o CRM (base local
-// do navegador) importar e exibir no kanban do vendedor.
-router.get('/crm-leads', async (req, res) => {
-  try {
-    const sinceId = Number(req.query.sinceId || 0);
-    const { rows } = await pool.query(
-      `SELECT o.id, o.client_name, o.client_phone, o.assigned_user_id, o.created_at,
-              og.name AS origin_name
-         FROM opportunities o
-         LEFT JOIN origins og ON og.id = o.origin_id
-        WHERE o.id > $1
-          AND (o.notes LIKE 'Lead criada automaticamente via WhatsApp%'
-            OR o.notes LIKE 'Oportunidade criada automaticamente via WhatsApp%')
-        ORDER BY o.id ASC
-        LIMIT 100`,
-      [sinceId]
-    );
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: 'Erro ao buscar leads do chat: ' + err.message }); }
 });
 
 router.get('/unread', async (req, res) => {
@@ -769,7 +518,7 @@ router.get('/unread', async (req, res) => {
       [req.user.id]
     );
     res.json({ total: Number(rows[0].total) });
-  } catch (err) { res.status(500).json({ error: 'Erro ao buscar nÃ£o lidas.' }); }
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar não lidas.' }); }
 });
 
 router.get('/queues-available', async (req, res) => {
