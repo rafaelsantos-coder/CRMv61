@@ -1,5 +1,5 @@
 /**
- * Sulnet V1 — Backend de Produção
+ * Sulnet V1 - Backend de Producao
  */
 
 require('dotenv').config();
@@ -37,14 +37,14 @@ const PORT = process.env.PORT || 3000;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : true, credentials: true }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisições. Tente novamente em 15 minutos.' } }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisicoes. Tente novamente em 15 minutos.' } }));
 app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' } }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 function requireQueueAdmin(req, res) {
   if (!req.user || !['admin', 'gerencia'].includes(req.user.role)) {
-    res.status(403).json({ error: 'Acesso restrito a administradores/gerência.' });
+    res.status(403).json({ error: 'Acesso restrito a administradores/gerencia.' });
     return false;
   }
   return true;
@@ -306,7 +306,7 @@ app.patch('/api/whatsapp/queues/:id/active', authMiddleware, async (req, res) =>
     if (!requireQueueAdmin(req, res)) return;
     const nextActive = req.body?.isActive === true || req.body?.isActive === 'true';
     const { rows } = await pool.query('UPDATE attendance_queues SET is_active=$1, updated_at=NOW() WHERE id=$2 RETURNING id, is_active, api_instance_id', [nextActive, req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Fila não encontrada.' });
+    if (!rows.length) return res.status(404).json({ error: 'Fila nao encontrada.' });
     const apiInstanceId = rows[0].api_instance_id;
     if (apiInstanceId && nextActive) {
       await pool.query(`
@@ -337,7 +337,7 @@ app.delete('/api/whatsapp/queues/:id/hard', authMiddleware, async (req, res) => 
     await client.query('BEGIN');
     await client.query('UPDATE conversations SET queue_id=NULL, updated_at=NOW() WHERE queue_id=$1', [req.params.id]).catch(() => {});
     const { rows } = await client.query('DELETE FROM attendance_queues WHERE id=$1 RETURNING id, api_instance_id', [req.params.id]);
-    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila não encontrada.' }); }
+    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila nao encontrada.' }); }
     const apiInstanceId = rows[0].api_instance_id;
     if (apiInstanceId) {
       await client.query(`
@@ -405,10 +405,14 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
   window.__chat68Reload=function(){location.reload();};
 })();
 </script>`;
-  if (!patched.includes('chat68-layout-v69') && !patched.includes('id="chat68-css"')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
+  if (!patched.includes('chat68-layout-v69')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
   patched = patched.replace(
     "if(el) el.innerHTML='<div style=\"padding:12px;font-size:11px;color:#fca5a5;font-family:monospace\">Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'</div>';",
     "if(el) el.innerHTML='<div class=\"c68-error-card\"><strong>Não foi possível carregar as conversas</strong><div>'+esc(window.__chat68LastError||'Falha na API do chat')+'</div><button onclick=\"window.__chat68Reload&&window.__chat68Reload()\">Recarregar chat</button></div>';"
+  );
+  patched = patched.replace(
+    "    if(!r) return;\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    _c68openConv(r.id,user);",
+    "    if(!r){ alert(window.__chat68LastError||'Não foi possível abrir o atendimento.'); return; }\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    if(!CS.convs.some(c=>Number(c.id)===Number(r.id))){\n      CS.convs.unshift(r);\n      CS.filtered=CS.convs;\n      _c68renderList(user);\n    }\n    _c68openConv(r.id,user);"
   );
   if (!patched.includes('window.editWhatsQueue=')) {
     const marker = '  window.deleteWhatsQueue=async function(id){';
@@ -454,10 +458,10 @@ async function start() {
   try { await runMigrations(); }
   catch (err) { console.error(`Falha ao preparar banco: ${err.message}`); console.error('O servidor vai iniciar, mas rotas que dependem do schema podem falhar.'); }
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
-    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
-    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
-    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
+    console.log(`Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'configurado' : 'NAO configurado'}`);
+    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? 'configurado' : 'usando padrao (configure nas variaveis)'}`);
+    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? 'configurado' : 'NAO configurado (uploads desativados)'}`);
   });
 }
 
