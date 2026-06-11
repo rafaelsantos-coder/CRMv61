@@ -388,7 +388,7 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
 .c68-av{width:44px!important;height:44px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
 .c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:4px!important}.c68-itime{color:#94a3b8!important}
 .c68-ibadge{background:#ff4f1f!important;color:white!important}.c68-istatus.open,.c68-istatus.in_attendance{background:#22c55e!important}
-#c68-mid{background:#0b1018!important;position:relative!important}
+#c68-mid{background:#0b1018!important;position:relative!important;flex:0 0 50%!important;max-width:50%!important;min-width:0!important}
 #c68-empty{background:radial-gradient(circle at center,rgba(34,197,94,.08),transparent 36%),#0b1018!important;color:#94a3b8!important}
 #c68-empty span{font-size:58px!important;opacity:.22!important}#c68-empty p{color:#dbeafe!important;font-size:15px!important;font-weight:700!important}
 #c68-head{height:64px!important;padding:0 18px!important;background:#111722!important;border-bottom:1px solid #253044!important}
@@ -398,7 +398,7 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
 #c68-inp{padding:14px 18px!important;background:#111722!important;border-top:1px solid #253044!important}.c68-inprow{gap:10px!important}.c68-attbtn,.c68-micbtn,.c68-sndbtn{width:42px!important;height:42px!important;border-radius:10px!important}.c68-ta{min-height:42px!important;border-radius:10px!important;background:#182235!important;border:1px solid #334155!important;color:#f8fafc!important;font-size:13px!important;padding:10px 12px!important}.c68-sndbtn{background:#16a34a!important;color:white!important}
 #c68-panel{width:320px!important;min-width:320px!important;background:#111722!important;border-left:1px solid #253044!important}.c68-psec{padding:16px!important}.c68-oppcard,.c68-note{background:#182235!important;border-color:#334155!important}.c68-pval,.c68-oppval{color:#f8fafc!important}
 .c68-error-card{margin:14px!important;padding:14px!important;border:1px solid rgba(248,113,113,.45)!important;background:rgba(127,29,29,.22)!important;border-radius:10px!important;color:#fecaca!important;font-family:inherit!important;line-height:1.45!important}.c68-error-card strong{display:block!important;color:#fff!important;margin-bottom:6px!important}.c68-error-card button{margin-top:10px!important;height:32px!important;border:0!important;border-radius:8px!important;background:#ef4444!important;color:white!important;font-weight:700!important;padding:0 12px!important;cursor:pointer!important}
-@media (max-width:900px){#chat68{height:calc(100vh - 48px)!important;border:0!important}#c68-sidebar{width:42vw!important;min-width:280px!important}#c68-panel{display:none!important}.c68-hacts{display:none!important}#c68-msgs{padding:18px!important}.c68-bub{max-width:86%!important}}
+@media (max-width:900px){#chat68{height:calc(100vh - 48px)!important;border:0!important}#c68-sidebar{width:42vw!important;min-width:280px!important}#c68-mid{flex:1 1 auto!important;max-width:none!important}#c68-panel{display:none!important}.c68-hacts{display:none!important}#c68-msgs{padding:18px!important}.c68-bub{max-width:86%!important}}
 </style>
 <script id="chat68-layout-v69-js">
 (function(){
