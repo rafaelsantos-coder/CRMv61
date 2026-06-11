@@ -124,7 +124,7 @@ async function findConversationByPhone(phone) {
   return rows[0] || null;
 }
 
-// -- CONFIG LEGADA Z-API ---------------------------------------------------
+// ── CONFIG LEGADA Z-API ───────────────────────────────────────────────────
 async function getQueueForNewConversation(queueId, user) {
   if (!queueId) return null;
   const params = [queueId];
@@ -209,7 +209,7 @@ router.post('/config/webhook', requireRole(['admin', 'gerencia']), async (req, r
   } catch (err) { res.status(500).json({ error: 'Erro ao registrar webhook: ' + err.message }); }
 });
 
-// -- CONVERSAS -------------------------------------------------------------
+// ── CONVERSAS ─────────────────────────────────────────────────────────────
 router.get('/conversations', async (req, res) => {
   try {
     await consolidateDuplicateConversations();
@@ -332,7 +332,7 @@ router.patch('/conversations/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Erro ao atualizar conversa: ' + err.message }); }
 });
 
-// -- TRANSFERENCIA ---------------------------------------------------------
+// ── TRANSFERÊNCIA ─────────────────────────────────────────────────────────
 router.post('/conversations/:id/transfer', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -373,7 +373,7 @@ router.post('/conversations/:id/transfer', async (req, res) => {
   } finally { client.release(); }
 });
 
-// -- PAINEL LATERAL --------------------------------------------------------
+// ── PAINEL LATERAL ────────────────────────────────────────────────────────
 router.get('/conversations/:id/panel', async (req, res) => {
   try {
     const owned = await getOwnedConversation(req.params.id, req.user);
@@ -426,7 +426,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Erro ao buscar painel: ' + err.message }); }
 });
 
-// -- MENSAGENS -------------------------------------------------------------
+// ── MENSAGENS ─────────────────────────────────────────────────────────────
 router.get('/conversations/:id/messages/new', async (req, res) => {
   try {
     const owned = await getOwnedConversation(req.params.id, req.user);
@@ -436,7 +436,7 @@ router.get('/conversations/:id/messages/new', async (req, res) => {
       `SELECT m.*, u.name AS sender_user_name
        FROM chat_messages m
        LEFT JOIN users u ON u.id = m.sender_id
-       WHERE m.conversation_id = $1 AND m.id > $2
+      WHERE m.conversation_id = $1 AND m.id > $2
          AND (m.msg_type <> 'unsupported' OR NULLIF(NULLIF(m.text_content,''),'unsupported') IS NOT NULL)
        ORDER BY m.sent_at ASC, m.id ASC`,
       [req.params.id, since]
@@ -485,23 +485,35 @@ router.post('/conversations/:id/messages', async (req, res) => {
     const conv = owned.conv;
 
     let creds = null;
+    const fallbackCreds = await zapi.getCreds().catch(() => null);
     if (conv.api_instance_id) creds = await zapi.getCreds(conv.api_instance_id).catch(() => null);
-    if (!creds) creds = await zapi.getCreds().catch(() => null);
+    if (!creds) creds = fallbackCreds;
     if (!creds) return res.status(400).json({ error: 'Z-API não configurada para esta conversa.' });
 
     const targetPhone = zapiPhone(conv.phone || conv.phone_normalized);
+    const sendWithCreds = async (activeCreds) => {
+      if (type === 'text') {
+        if (!text?.trim()) throw new Error('Texto é obrigatório.');
+        return zapi.sendText(activeCreds, targetPhone, text.trim());
+      }
+      if (type === 'image') return zapi.sendImage(activeCreds, targetPhone, base64, caption);
+      if (type === 'audio') return zapi.sendAudio(activeCreds, targetPhone, base64);
+      if (type === 'document') return zapi.sendDocument(activeCreds, targetPhone, base64, fileName, caption);
+      throw new Error(`Tipo '${type}' não suportado.`);
+    };
+
     let zapiResult;
-    if (type === 'text') {
-      if (!text?.trim()) return res.status(400).json({ error: 'Texto é obrigatório.' });
-      zapiResult = await zapi.sendText(creds, targetPhone, text.trim());
-    } else if (type === 'image') {
-      zapiResult = await zapi.sendImage(creds, targetPhone, base64, caption);
-    } else if (type === 'audio') {
-      zapiResult = await zapi.sendAudio(creds, targetPhone, base64);
-    } else if (type === 'document') {
-      zapiResult = await zapi.sendDocument(creds, targetPhone, base64, fileName, caption);
-    } else {
-      return res.status(400).json({ error: `Tipo '${type}' não suportado.` });
+    try {
+      zapiResult = await sendWithCreds(creds);
+    } catch (sendErr) {
+      const canRetry =
+        fallbackCreds &&
+        fallbackCreds.instance_id &&
+        fallbackCreds.token &&
+        (fallbackCreds.instance_id !== creds.instance_id || fallbackCreds.token !== creds.token);
+      if (!canRetry) throw sendErr;
+      zapiResult = await sendWithCreds(fallbackCreds);
+      creds = fallbackCreds;
     }
 
     const zapiMessageId = zapiResult?.messageId || zapiResult?.zaapId || null;
