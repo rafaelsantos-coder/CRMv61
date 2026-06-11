@@ -69,6 +69,51 @@ async function getCreds(apiInstanceId = null) {
   return creds;
 }
 
+async function listCredsCandidates() {
+  const legacyRow = await getLegacyCreds().catch(() => null);
+  const out = [];
+  const seen = new Set();
+
+  const pushCreds = (creds) => {
+    if (!creds?.instance_id || !creds?.token) return;
+    const key = `${creds.instance_id}::${creds.token}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(creds);
+  };
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT ai.*,
+             EXISTS (
+               SELECT 1
+                 FROM attendance_queues q
+                WHERE q.api_instance_id = ai.id
+                  AND q.is_active = true
+             ) AS has_active_queue
+        FROM api_instances ai
+       ORDER BY
+         CASE WHEN ai.is_active THEN 0 ELSE 1 END,
+         CASE WHEN EXISTS (
+           SELECT 1
+             FROM attendance_queues q
+            WHERE q.api_instance_id = ai.id
+              AND q.is_active = true
+         ) THEN 0 ELSE 1 END,
+         ai.updated_at DESC NULLS LAST,
+         ai.id DESC
+    `);
+    for (const row of rows) {
+      pushCreds(mergeCreds(row, legacyRow));
+    }
+  } catch {
+    // segue com credencial legada
+  }
+
+  pushCreds(mergeCreds(null, legacyRow));
+  return out;
+}
+
 function zapiBase(creds) {
   return `https://api.z-api.io/instances/${creds.instance_id}/token/${creds.token}`;
 }
@@ -315,6 +360,7 @@ async function registerEveryWebhook(creds, webhookUrl) {
 
 module.exports = {
   getCreds,
+  listCredsCandidates,
   zapiBase,
   zapiHeaders,
   checkStatus,
