@@ -10,6 +10,54 @@ const queueDistribution = require('../services/queueDistribution');
 
 const seenMsgIds = new Set();
 
+function digitsOnly(raw) {
+  return String(raw || '').split('@')[0].replace(/\D/g, '');
+}
+
+function phoneVariants(raw) {
+  const d = digitsOnly(raw);
+  const out = new Set();
+  if (!d) return [];
+  out.add(d);
+
+  let local = d;
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) {
+    local = d.slice(2);
+    out.add(local);
+  } else if (d.length === 10 || d.length === 11) {
+    out.add('55' + d);
+  }
+
+  if (local.length === 10) {
+    const withNine = local.slice(0, 2) + '9' + local.slice(2);
+    out.add(withNine);
+    out.add('55' + withNine);
+  }
+
+  if (local.length === 11 && local[2] === '9') {
+    const withoutNine = local.slice(0, 2) + local.slice(3);
+    out.add(withoutNine);
+    out.add('55' + withoutNine);
+  }
+
+  return [...out].filter(Boolean);
+}
+
+function canonicalPhone(raw) {
+  const variants = phoneVariants(raw);
+  const local11 = variants.find(v => v.length === 11 && !v.startsWith('55'));
+  if (local11) return local11;
+  const local10 = variants.find(v => v.length === 10 && !v.startsWith('55'));
+  if (local10) return local10;
+  return variants[0] || digitsOnly(raw);
+}
+
+function zapiPhone(raw) {
+  const variants = phoneVariants(raw);
+  return variants.find(v => v.startsWith('55') && (v.length === 12 || v.length === 13)) ||
+    (canonicalPhone(raw) ? '55' + canonicalPhone(raw) : digitsOnly(raw));
+}
+
 router.post('/', async (req, res) => {
   res.json({ ok: true });
 
@@ -46,7 +94,6 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Se for apenas callback de status, pode parar aqui.
     if (payload.fromMe === true && mappedStatus && !payload.text && !payload.image && !payload.audio && !payload.video && !payload.document && !payload.sticker) {
       await markEvent(evtId);
       return;
@@ -86,6 +133,7 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT (zapi_message_id) WHERE zapi_message_id IS NOT NULL
        DO UPDATE SET
+         conversation_id = EXCLUDED.conversation_id,
          status = EXCLUDED.status,
          raw_payload = EXCLUDED.raw_payload
        RETURNING id`,
@@ -108,12 +156,15 @@ router.post('/', async (req, res) => {
 
     await pool.query(
       `UPDATE conversations SET
+         phone = COALESCE(NULLIF(phone,''), $4),
+         phone_normalized = $5,
          unread_count = CASE WHEN $2 = true THEN unread_count ELSE unread_count + 1 END,
          last_message_at = NOW(),
          client_name = COALESCE(NULLIF($3,''), client_name),
+         assigned_user_id = COALESCE(assigned_user_id, $6),
          updated_at = NOW()
        WHERE id = $1`,
-      [conversation.id, !!payload.fromMe, clientName !== phone ? clientName : null]
+      [conversation.id, !!payload.fromMe, clientName !== phone ? clientName : null, zapiPhone(phone), canonicalPhone(phone), assignedByRule]
     );
 
     await markEvent(evtId);
@@ -130,7 +181,33 @@ async function markEvent(id) {
 }
 
 async function findOrCreateConversation({ phone, aliases, clientName, payload, apiInstance, queue, assignedByRule }) {
-  // 1. Procura por aliases.
+  const lookupValues = new Set();
+  for (const a of aliases) {
+    if (a.alias) {
+      lookupValues.add(a.alias);
+      phoneVariants(a.alias).forEach(v => lookupValues.add(v));
+    }
+  }
+  phoneVariants(phone).forEach(v => lookupValues.add(v));
+  const lookup = [...lookupValues].filter(Boolean);
+
+  if (lookup.length) {
+    const { rows } = await pool.query(
+      `SELECT c.*
+         FROM conversations c
+        WHERE c.phone = ANY($1::text[])
+           OR c.phone_normalized = ANY($1::text[])
+        ORDER BY c.last_message_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.id DESC
+        LIMIT 1`,
+      [lookup]
+    ).catch(() => ({ rows: [] }));
+    if (rows[0]) {
+      await registerAliases(rows[0].id, aliases);
+      await mergeConversationDuplicates(rows[0], lookup);
+      return rows[0];
+    }
+  }
+
   for (const a of aliases) {
     const { rows } = await pool.query(
       `SELECT c.* FROM chat_contact_aliases ca
@@ -141,27 +218,12 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
     ).catch(() => ({ rows: [] }));
     if (rows[0]) {
       await registerAliases(rows[0].id, aliases);
+      await mergeConversationDuplicates(rows[0], lookup);
       return rows[0];
     }
   }
 
-  // 2. Procura por telefone normalizado.
-  const normalized = phone || aliases.find(a => a.type === 'phone')?.alias || null;
-  if (normalized) {
-    const { rows } = await pool.query(
-      `SELECT * FROM conversations
-       WHERE phone = $1 OR phone_normalized = $1
-       LIMIT 1`,
-      [normalized]
-    ).catch(() => ({ rows: [] }));
-    if (rows[0]) {
-      await registerAliases(rows[0].id, aliases);
-      return rows[0];
-    }
-  }
-
-  // 3. Fallback por nome para evitar duplicação LID quando não vem telefone real.
-  if (clientName && clientName !== normalized) {
+  if (clientName && lookup.length) {
     const { rows } = await pool.query(
       `SELECT * FROM conversations
        WHERE LOWER(client_name) = LOWER($1)
@@ -171,11 +233,13 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
     ).catch(() => ({ rows: [] }));
     if (rows[0]) {
       await registerAliases(rows[0].id, aliases);
+      await mergeConversationDuplicates(rows[0], lookup);
       return rows[0];
     }
   }
 
-  const phoneToSave = normalized || aliases[0]?.alias || '';
+  const phoneToSave = zapiPhone(phone || aliases[0]?.alias || '');
+  const normalized = canonicalPhone(phoneToSave);
   if (!phoneToSave) return null;
 
   const contact = apiInstance ? await zapi.fetchContact(apiInstance, phoneToSave).catch(() => null) : null;
@@ -183,12 +247,13 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
 
   let opportunityId = null;
   let assignedUserId = assignedByRule || null;
+  const variants = phoneVariants(phoneToSave);
 
   const { rows: existingOpps } = await pool.query(
     `SELECT id, assigned_user_id FROM opportunities
-     WHERE client_phone = $1 OR client_cpf = $1
+     WHERE client_phone = ANY($1::text[]) OR client_cpf = ANY($1::text[])
      ORDER BY created_at DESC LIMIT 1`,
-    [phoneToSave]
+    [variants]
   ).catch(() => ({ rows: [] }));
 
   if (existingOpps[0]) {
@@ -233,7 +298,7 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
      RETURNING *`,
     [
       phoneToSave,
-      zapi.normalizePhone(phoneToSave),
+      normalized,
       finalName,
       contact?.photo || null,
       assignedUserId,
@@ -248,6 +313,21 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
   return newConv[0];
 }
 
+async function mergeConversationDuplicates(primary, lookup) {
+  if (!primary?.id || !lookup?.length) return;
+  const { rows } = await pool.query(
+    `SELECT id FROM conversations
+      WHERE id <> $1
+        AND (phone = ANY($2::text[]) OR phone_normalized = ANY($2::text[]))`,
+    [primary.id, lookup]
+  ).catch(() => ({ rows: [] }));
+  const duplicateIds = rows.map(r => r.id);
+  if (!duplicateIds.length) return;
+  await pool.query('UPDATE chat_messages SET conversation_id=$1 WHERE conversation_id = ANY($2::int[])', [primary.id, duplicateIds]).catch(() => {});
+  await pool.query('UPDATE chat_contact_aliases SET conversation_id=$1 WHERE conversation_id = ANY($2::int[])', [primary.id, duplicateIds]).catch(() => {});
+  await pool.query('DELETE FROM conversations WHERE id = ANY($1::int[])', [duplicateIds]).catch(() => {});
+}
+
 async function registerAliases(conversationId, aliases) {
   for (const a of aliases) {
     if (!a.alias) continue;
@@ -257,6 +337,14 @@ async function registerAliases(conversationId, aliases) {
        ON CONFLICT (alias) DO UPDATE SET conversation_id = EXCLUDED.conversation_id`,
       [conversationId, a.alias, a.type || 'unknown']
     ).catch(() => {});
+    for (const v of phoneVariants(a.alias)) {
+      await pool.query(
+        `INSERT INTO chat_contact_aliases (conversation_id, alias, alias_type)
+         VALUES ($1,$2,$3)
+         ON CONFLICT (alias) DO UPDATE SET conversation_id = EXCLUDED.conversation_id`,
+        [conversationId, v, 'phone_variant']
+      ).catch(() => {});
+    }
   }
 }
 
