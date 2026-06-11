@@ -6,33 +6,67 @@
 
 const { pool } = require('../config/db');
 
+function preferValue(primary, fallback = '') {
+  return primary === undefined || primary === null || primary === '' ? fallback : primary;
+}
+
+async function getLegacyCreds() {
+  const { rows } = await pool.query('SELECT * FROM zapi_config ORDER BY id DESC LIMIT 1');
+  return rows[0] || null;
+}
+
+function mergeCreds(instanceRow, legacyRow) {
+  if (!instanceRow && !legacyRow) return null;
+  return {
+    id: instanceRow?.id || null,
+    name: preferValue(instanceRow?.name, legacyRow?.name || 'Z-API'),
+    provider: preferValue(instanceRow?.provider, 'Z-API'),
+    instance_id: preferValue(instanceRow?.instance_id, legacyRow?.instance_id || ''),
+    token: preferValue(instanceRow?.token, legacyRow?.token || ''),
+    client_token: preferValue(instanceRow?.client_token, legacyRow?.client_token || ''),
+    webhook_url: preferValue(instanceRow?.webhook_url, legacyRow?.webhook_url || ''),
+  };
+}
+
 async function getCreds(apiInstanceId = null) {
+  let instanceRow = null;
   try {
-    let q = `SELECT * FROM api_instances WHERE is_active = true`;
-    const params = [];
     if (apiInstanceId) {
-      q += ` AND id = $1`;
-      params.push(apiInstanceId);
-    }
-    q += ` ORDER BY id DESC LIMIT 1`;
-    const { rows } = await pool.query(q, params);
-    if (rows[0]) {
-      return {
-        id: rows[0].id,
-        name: rows[0].name,
-        provider: rows[0].provider || 'Z-API',
-        instance_id: rows[0].instance_id,
-        token: rows[0].token,
-        client_token: rows[0].client_token || '',
-        webhook_url: rows[0].webhook_url,
-      };
+      const { rows } = await pool.query('SELECT * FROM api_instances WHERE id = $1 LIMIT 1', [apiInstanceId]);
+      instanceRow = rows[0] || null;
+      if (instanceRow && instanceRow.is_active === false) {
+        const { rows: queueRows } = await pool.query(
+          `SELECT 1
+             FROM attendance_queues
+            WHERE api_instance_id = $1
+              AND is_active = true
+            LIMIT 1`,
+          [apiInstanceId]
+        ).catch(() => ({ rows: [] }));
+        if (queueRows[0]) {
+          await pool.query(
+            `UPDATE api_instances
+                SET is_active = true,
+                    status = CASE WHEN status = 'disabled' THEN 'pending' ELSE status END,
+                    updated_at = NOW()
+              WHERE id = $1`,
+            [apiInstanceId]
+          ).catch(() => {});
+          instanceRow.is_active = true;
+        }
+      }
+    } else {
+      const { rows } = await pool.query('SELECT * FROM api_instances WHERE is_active = true ORDER BY id DESC LIMIT 1');
+      instanceRow = rows[0] || null;
     }
   } catch {
     // migration 003/004 pode ainda nao ter sido aplicada
   }
 
-  const { rows } = await pool.query('SELECT * FROM zapi_config ORDER BY id DESC LIMIT 1');
-  return rows[0] || null;
+  const legacyRow = await getLegacyCreds().catch(() => null);
+  const creds = mergeCreds(instanceRow, legacyRow);
+  if (!creds?.instance_id || !creds?.token) return null;
+  return creds;
 }
 
 function zapiBase(creds) {
@@ -81,7 +115,6 @@ async function registerWebhook(creds, webhookUrl) {
     body: JSON.stringify({ notifySentByMe: true }),
   }).catch(() => {});
 
-  // Diferentes contas/documentacoes podem usar nomes distintos. Mantemos tentativas nao fatais.
   await zapiRequest(creds, '/update-webhook-message-status', {
     method: 'PUT',
     body: JSON.stringify({ value: webhookUrl }),
@@ -212,7 +245,6 @@ function resolvePhone(payload = {}) {
     const d = realPhoneCandidate(c);
     if (d) return d;
   }
-  // fallback para LID/digitos; sera resolvido por alias no backend
   return normalizePhone(payload.phone || payload.senderLid || payload.chatLid || payload.remoteJid || '');
 }
 
@@ -220,9 +252,9 @@ function mapStatus(s) {
   if (!s) return null;
   s = String(s).toUpperCase();
   if (s === 'READ' || s === 'PLAYED') return 'READ';
-  if (['RECEIVED','DELIVERED','DELIVERY_ACK','DEVICE_ACK'].includes(s)) return 'RECEIVED';
-  if (['SENT','SERVER_ACK'].includes(s)) return 'SENT';
-  if (['PENDING','PENDING_ACK'].includes(s)) return 'PENDING';
+  if (['RECEIVED', 'DELIVERED', 'DELIVERY_ACK', 'DEVICE_ACK'].includes(s)) return 'RECEIVED';
+  if (['SENT', 'SERVER_ACK'].includes(s)) return 'SENT';
+  if (['PENDING', 'PENDING_ACK'].includes(s)) return 'PENDING';
   return null;
 }
 
@@ -276,7 +308,6 @@ async function registerEveryWebhook(creds, webhookUrl) {
       }),
     });
   } catch (err) {
-    // Fallback para contas/documentacoes que usam configuracao por evento.
     await registerWebhook(creds, webhookUrl);
     return { ok: true, fallback: true };
   }
