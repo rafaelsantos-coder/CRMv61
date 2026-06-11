@@ -126,6 +126,11 @@ router.post('/', async (req, res) => {
     const extraJson = extractExtra(payload, msgType);
     const sentAt = payload.momment || payload.moment || payload.timestamp || payload.messageTimestamp;
 
+    if (msgType === 'unsupported' && !textContent && !mediaUrl) {
+      await markEvent(evtId);
+      return;
+    }
+
     await pool.query(
       `INSERT INTO chat_messages
          (conversation_id, zapi_message_id, from_me, sender_name,
@@ -348,8 +353,48 @@ async function registerAliases(conversationId, aliases) {
   }
 }
 
+function firstText(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (value && typeof value === 'object') {
+      const nested = firstText(
+        value.message,
+        value.body,
+        value.text,
+        value.content,
+        value.caption,
+        value.value,
+        value.title,
+        value.description,
+        value.selectedDisplayText,
+        value.selectedButtonId,
+        value.selectedRowId
+      );
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function extractPlainText(p) {
+  return firstText(
+    p.text,
+    p.message,
+    p.body,
+    p.content,
+    p.caption,
+    p.messageText,
+    p.textMessage,
+    p.conversation,
+    p.extendedTextMessage,
+    p.buttonsResponseMessage,
+    p.listResponseMessage,
+    p.templateButtonReplyMessage
+  );
+}
+
 function detectMsgType(p) {
-  if (p.text) return 'text';
+  if (extractPlainText(p)) return 'text';
   if (p.image) return 'image';
   if (p.audio) return 'audio';
   if (p.video) return 'video';
@@ -364,7 +409,7 @@ function detectMsgType(p) {
 
 function extractText(p, type) {
   if (type === 'text') {
-    return p.text?.message || p.text?.body || (typeof p.text === 'string' ? p.text : null) || p.buttonsResponseMessage?.message || p.listResponseMessage?.message || null;
+    return extractPlainText(p);
   }
   if (type === 'reaction') return p.reaction?.value || p.reaction?.emoji || '';
   return null;

@@ -188,6 +188,7 @@ router.get('/conversations', async (req, res) => {
                 END)
               FROM chat_messages cm
               WHERE cm.conversation_id = c.id
+                AND (cm.msg_type <> 'unsupported' OR NULLIF(cm.text_content,'') IS NOT NULL)
               ORDER BY cm.sent_at DESC, cm.id DESC LIMIT 1) AS last_message_preview
       FROM conversations c
       LEFT JOIN users u ON u.id = c.assigned_user_id
@@ -374,6 +375,7 @@ router.get('/conversations/:id/messages/new', async (req, res) => {
        FROM chat_messages m
        LEFT JOIN users u ON u.id = m.sender_id
        WHERE m.conversation_id = $1 AND m.id > $2
+         AND (m.msg_type <> 'unsupported' OR NULLIF(m.text_content,'') IS NOT NULL)
        ORDER BY m.sent_at ASC, m.id ASC`,
       [req.params.id, since]
     );
@@ -400,6 +402,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
       LEFT JOIN users u ON u.id = m.sender_id
       WHERE m.conversation_id = $1
         AND m.sent_at >= NOW() - INTERVAL '${historyDays} days'
+        AND (m.msg_type <> 'unsupported' OR NULLIF(m.text_content,'') IS NOT NULL)
     `;
     const params = [req.params.id];
     let p = 2;

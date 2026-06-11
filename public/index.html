@@ -636,7 +636,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       {id:28,funnelId:6,name:'INÍCIO',sortOrder:1,color:'#94a3b8'}, {id:29,funnelId:6,name:'CONFERÊNCIA',sortOrder:2,color:'#ef3f0a'}, {id:30,funnelId:6,name:'ASSINATURA',sortOrder:3,color:'#d97706'}, {id:31,funnelId:6,name:'CONCLUÍDO',sortOrder:4,color:'#16a34a'},
     ];
     const origins=[
-      {id:1,name:'WhatsApp',active:true},{id:2,name:'Comercial - MetaAds - Fibra',active:true},{id:3,name:'Comercial - MetaAds - Google',active:true},{id:4,name:'Trafego pago Site',active:true},{id:5,name:'Indicação Cliente',active:true},{id:6,name:'Loja / Frente de Loja',active:true},{id:7,name:'Porta a Porta',active:true},{id:8,name:'SZ Chat',active:true}
+      {id:1,name:'WhatsApp',active:true},{id:2,name:'Comercial - MetaAds - Fibra',active:true},{id:3,name:'Comercial - MetaAds - Google',active:true},{id:4,name:'Trafego pago Site',active:true},{id:5,name:'Indicação Cliente',active:true},{id:6,name:'Loja / Frente de Loja',active:true},{id:7,name:'Porta a Porta',active:true}
     ];
     const products=[
       {
@@ -1252,7 +1252,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       {id:3,name:'Análise manual - score médio com restrições',minScore:400,maxScore:549,decision:'Análise manual',riskLevel:'Médio',maxRestrictions:2,allowProtest:false,condition:'Encaminhar para análise BKO/gerência com justificativa.',active:true,sortOrder:3},
       {id:4,name:'Reprovação automática - score baixo ou protesto',minScore:0,maxScore:399,decision:'Reprovado',riskLevel:'Alto',maxRestrictions:99,allowProtest:false,condition:'Reprovado por score baixo. Se houver exceção, solicitar avaliação gerencial.',active:true,sortOrder:4}
     ];
-    return {users,funnels,stages,origins,products,plans,tags,outcomeReasons,creditRules,opportunities,analysisRequests,calendarEvents,googleCalendarConfig,counters:{user:8,funnel:6,stage:31,origin:8,product:15,plan:55,tag:5,outcome:7,opp:4,analysis:3,calendar:3,creditRule:4}};
+    return {users,funnels,stages,origins,products,plans,tags,outcomeReasons,creditRules,opportunities,analysisRequests,calendarEvents,googleCalendarConfig,counters:{user:8,funnel:6,stage:31,origin:7,product:15,plan:55,tag:5,outcome:7,opp:4,analysis:3,calendar:3,creditRule:4}};
   }
   function migrateState(st){
     const base=seed();
@@ -1287,12 +1287,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     st.funnels.forEach((f,i)=>{if(f.active===undefined)f.active=true;if(!f.sortOrder)f.sortOrder=i+1});
     st.stages.forEach((s,i)=>{if(!s.sortOrder)s.sortOrder=i+1;if(!s.color)s.color='#ef3f0a'});
     st.origins.forEach(o=>{if(o.active===undefined)o.active=true});
-    if(!st.origins.some(o=>normName(o.name)==='SZ CHAT')){
-      st.counters=st.counters||{};
-      st.counters.origin=Math.max(Number(st.counters.origin)||0,...st.origins.map(x=>Number(x.id)||0))+1;
-      st.origins.push({id:st.counters.origin,name:'SZ Chat',active:true});
-      changed=true;
-    }
     st.products.forEach((c,i)=>{if(c.active===undefined)c.active=true;if(!c.sortOrder)c.sortOrder=i+1});
     st.plans.forEach(p=>{if(p.active===undefined)p.active=true;if(!Array.isArray(p.tags))p.tags=[];if(!p.categoryId&&p.productType){const legacy={'fibra':'FIBRA','movel':'TELEFONIA MÓVEL','fixo':'TELEFONIA FIXA','tv':'TV'}[p.productType];const cat=st.products.find(c=>normName(c.name)===normName(legacy));if(cat){p.categoryId=cat.id;changed=true;}}});
     st.tags.forEach(t=>{if(t.active===undefined)t.active=true;if(!t.color)t.color='orange'});
@@ -1662,11 +1656,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       name:document.getElementById('wq-name')?.value?.trim()||'',
       queueType:document.getElementById('wq-type')?.value||'zapi',
       type:'comercial',
-      instanceId:document.getElementById('wq-instance-id')?.value?.trim()||'',
-      token:document.getElementById('wq-token')?.value?.trim()||'',
-      clientToken:document.getElementById('wq-client-token')?.value?.trim()||'',
-      settings:{ historyDays: Number(document.getElementById('wq-history-days')?.value||30) },
-      testConnection: !!(document.getElementById('wq-instance-id')?.value?.trim() && document.getElementById('wq-token')?.value?.trim()),
       isActive:true
     };
     if(!d.name){toast('Informe o nome da fila.','error');return}
@@ -1675,7 +1664,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       __whatsV68CState.queueDraft=null;
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
-      toast(d.instanceId&&d.token?'Fila criada e credenciais salvas.':'Fila criada. Agora preencha os dados da instância Z-API.');
+      toast('Fila criada. Agora preencha os dados da instância Z-API.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=q.id;
       __whatsV68CState.subtab='conexao';
@@ -1809,7 +1798,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   }
 
   function whatsCreateQueueFormV68C(){
-    const d=__whatsV68CState.queueDraft||{};
     return `<div class="whats-expand-panel">
       <h3 style="margin:0 0 16px">Criar nova fila de WhatsApp</h3>
       <div class="whats-form-grid two">
@@ -1897,7 +1885,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   }
 
   function zapiCredentialCardV68C(q){
-    const webhook=(location.origin||'https://crmv68c-finaluction-56bc.up.railway.app')+'/webhook';
+    const webhook=(location.origin||'https://crmv68e-chat-visualuction-56bc.up.railway.app')+'/webhook';
     const connected=String(q.server_status||q.api_status||'').toLowerCase().includes('conect')||String(q.server_status||'').toLowerCase().includes('autenticado');
     return `<div class="zapi-config-card" style="margin-top:18px">
       <div class="zapi-config-title">🔑 Credenciais da instância Z-API</div>
@@ -2094,84 +2082,8 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     </div>`;
   }
 
-
-  function szchatWebhookUrl(){
-    return `${location.origin}/api/integrations/szchat/webhook`;
-  }
-
-  window.copySzChatWebhookUrl=async function(){
-    try{await navigator.clipboard.writeText(szchatWebhookUrl());toast('URL do webhook copiada.')}catch(e){toast('Copie manualmente a URL exibida.','error')}
-  }
-
-  window.testSzChatHealth=async function(){
-    try{
-      const r=await fetch('/api/integrations/szchat/health',{headers:buildAuthHeaders()});
-      const data=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(data.error||'Health check falhou');
-      toast('Integração SZ Chat ativa.');
-      window.__szchatHealth=data;
-      render();
-    }catch(e){toast(e.message||'Erro ao testar SZ Chat.','error')}
-  }
-
-  window.sendSzChatTestLead=async function(){
-    const phone=prompt('Telefone para teste, somente números. Ex: 5599999999999','5599999999999');
-    if(!phone)return;
-    const payload={
-      event:'enter_queue',
-      agent:{email:'gabrieli.padilha@bot.sulnet'},
-      contact:{name:'Cliente Teste SZ Chat',phone},
-      platform:'WhatsApp',
-      channel_id:'canal_teste_crm',
-      session_id:'teste_'+Date.now(),
-      protocol:'SZ-TESTE-'+Date.now(),
-      message:'Olá, quero contratar internet.'
-    };
-    try{
-      const r=await fetch('/api/integrations/szchat/webhook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const data=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(data.error||data.detail||'Erro ao enviar lead teste');
-      toast(data.duplicated?'Lead já existia; histórico atualizado.':'Lead teste criada para gabrieli.padilha.');
-      window.__szchatLastTest=data;
-      render();
-    }catch(e){toast(e.message||'Erro no teste SZ Chat.','error')}
-  }
-
-  function adminSzChatPanel(){
-    const health=window.__szchatHealth;
-    const last=window.__szchatLastTest;
-    return `<div class="grid two">
-      <div class="card">
-        <h3>Integração SZ Chat → CRM</h3>
-        <p class="small">Use esta URL na API Receptiva/Webhook do SZ Chat. Quando o cliente entrar no atendimento, o CRM cria a lead automaticamente.</p>
-        <div class="field"><label>URL do webhook</label><input readonly value="${esc(szchatWebhookUrl())}" style="font-family:monospace;font-size:12px"></div>
-        <div class="toolbar"><button class="btn btn-light" onclick="copySzChatWebhookUrl()">Copiar URL</button><button class="btn btn-primary" onclick="testSzChatHealth()">Testar conexão</button></div>
-        ${health?`<div class="alert success mt14">Integração ativa: ${esc(health.endpoint||'/api/integrations/szchat/webhook')}</div>`:''}
-      </div>
-      <div class="card">
-        <h3>Regra de entrada da lead</h3>
-        <div class="list-item"><div><strong>Origem da lead</strong><br><span class="small">Sempre entra como SZ Chat.</span></div><span class="pill">SZ Chat</span></div>
-        <div class="list-item"><div><strong>Usuário SZ Chat</strong><br><span class="small mono">gabrieli.padilha@bot.sulnet</span></div><span>→</span></div>
-        <div class="list-item"><div><strong>Usuário CRM</strong><br><span class="small mono">gabrieli.padilha</span></div><span class="pill">teste</span></div>
-        <p class="small mt14">A integração remove automaticamente tudo depois do @ para localizar o usuário do CRM e usar o funil vinculado a ele.</p>
-        <button class="btn btn-primary" onclick="sendSzChatTestLead()">Criar lead teste para Gabrieli</button>
-        ${last?`<div class="alert success mt14">Último teste: ${esc(last.message||'processado')} ${last.lead_id?` — Lead #${last.lead_id}`:''}</div>`:''}
-      </div>
-      <div class="card" style="grid-column:1/-1">
-        <h3>Como configurar no SZ Chat</h3>
-        <ol class="small" style="line-height:1.8;margin-top:8px">
-          <li>Acesse o painel do SZ Chat.</li>
-          <li>Abra a área de Integrações / API Receptiva / Webhook.</li>
-          <li>Cadastre a URL acima como destino POST.</li>
-          <li>Habilite eventos de atendimento/fila e mensagem do cliente.</li>
-          <li>Faça um chamado real no SZ Chat e verifique a lead no CRM.</li>
-        </ol>
-      </div>
-    </div>`;
-  }
-
-  function renderAdmin(user){const tabs=[['usuarios','Usuários'],['funis','Funis e Etapas'],['origens','Origens'],['planos','Categorias e Produtos'],['tags','Tags'],['motivos','Motivos Ganho/Perda'],['atendimento','Atendimento / WhatsApp'],['szchat','Integração SZ Chat']];return `<div class="subbar"><div><h1>Administração</h1><p>Cadastros básicos do sistema integrado. <span class="small">Alterações são salvas automaticamente neste navegador.</span></p></div><button class="btn btn-light" data-action="resetData">Restaurar dados de demonstração</button></div><div class="tabs">${tabs.map(t=>`<button class="tab ${ui.adminTab===t[0]?'active':''}" data-admin-tab="${t[0]}">${t[1]}</button>`).join('')}</div><div class="mt14">${adminTabContent()}</div>`}
-  function adminTabContent(){const st=getState();if(ui.adminTab==='usuarios')return adminUsers(st);if(ui.adminTab==='funis')return adminFunnels(st);if(ui.adminTab==='origens')return adminOrigins(st);if(ui.adminTab==='planos')return adminPlans(st);if(ui.adminTab==='tags')return adminTags(st);if(ui.adminTab==='motivos')return adminOutcomes(st);if(ui.adminTab==='atendimento')return adminAttendancePanel();if(ui.adminTab==='szchat')return adminSzChatPanel();return ''}
+  function renderAdmin(user){const tabs=[['usuarios','Usuários'],['funis','Funis e Etapas'],['origens','Origens'],['planos','Categorias e Produtos'],['tags','Tags'],['motivos','Motivos Ganho/Perda'],['atendimento','Atendimento / WhatsApp']];return `<div class="subbar"><div><h1>Administração</h1><p>Cadastros básicos do sistema integrado. <span class="small">Alterações são salvas automaticamente neste navegador.</span></p></div><button class="btn btn-light" data-action="resetData">Restaurar dados de demonstração</button></div><div class="tabs">${tabs.map(t=>`<button class="tab ${ui.adminTab===t[0]?'active':''}" data-admin-tab="${t[0]}">${t[1]}</button>`).join('')}</div><div class="mt14">${adminTabContent()}</div>`}
+  function adminTabContent(){const st=getState();if(ui.adminTab==='usuarios')return adminUsers(st);if(ui.adminTab==='funis')return adminFunnels(st);if(ui.adminTab==='origens')return adminOrigins(st);if(ui.adminTab==='planos')return adminPlans(st);if(ui.adminTab==='tags')return adminTags(st);if(ui.adminTab==='motivos')return adminOutcomes(st);if(ui.adminTab==='atendimento')return adminAttendancePanel();return ''}
   function adminFunnels(st){
     st.funnels = Array.isArray(st.funnels)?st.funnels:[];
     st.stages = Array.isArray(st.stages)?st.stages:[];
@@ -3084,14 +2996,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const currentFunnel=opp.funnelId||st.stages.find(s=>s.id===Number(currentStage))?.funnelId||ui.funnelId;
     const productRequired=!(Number(currentStage)===Number(getFirstStage(st,currentFunnel)?.id));
     openModal(`<div class="modal"><div class="modal-head"><h2>${isEdit?'Editar Oportunidade':'Nova Oportunidade'}</h2><button class="x" data-action="closeModal">×</button></div><div class="modal-body"><form id="oppForm" data-id="${opp.id||''}" novalidate>
-      <input type="hidden" name="funnelId" value="${esc(currentFunnel)}"><input type="hidden" name="stageId" value="${esc(currentStage)}">
+      <input type="hidden" name="funnelId" value="${esc(currentFunnel)}"><input type="hidden" name="stageId" value="${esc(currentStage)}"><input type="hidden" name="originId" value="${esc(opp.originId||'')}">
       ${renderOppTabs()}
 
       <section class="opp-tab-panel active" data-opp-panel="dados">
         <div class="section-title">Dados pessoais</div>
         <div class="field"><label>Tipo de documento *</label><div class="doc-toggle"><button type="button" class="${docType==='cpf'?'active':''}" data-doc-toggle="cpf">CPF</button><button type="button" class="${docType==='cnpj'?'active':''}" data-doc-toggle="cnpj">CNPJ</button></div><input type="hidden" name="documentType" value="${docType}"></div>
         <div class="form-row three"><div class="field"><label>CPF/CNPJ *</label><input name="clientCpf" required value="${esc(opp.clientCpf||'')}" placeholder="000.000.000-00"><small data-doc-analysis-hint>${esc(analysisHintText(st,opp.clientCpf||''))}</small></div><div class="field"><label>Nome do cliente *</label><input name="clientName" required value="${esc(opp.clientName||'')}"></div><div class="field"><label>Data nascimento / abertura *</label><input name="clientBirthDate" type="date" value="${esc(opp.clientBirthDate||'')}"><small>Obrigatório para avançar após a etapa inicial.</small></div></div>
-        <div class="form-row three"><div class="field"><label>Telefone</label><input name="clientPhone" value="${esc(opp.clientPhone||'')}" placeholder="(55) 99999-9999"></div><div class="field"><label>E-mail</label><input name="clientEmail" value="${esc(opp.clientEmail||'')}"></div><div class="field"><label>Origem</label><select name="originId"><option value="">Selecione</option>${st.origins.filter(o=>o.active!==false).map(o=>`<option value="${o.id}" ${Number(o.id)===Number(opp.originId)?'selected':''}>${esc(o.name)}</option>`).join('')}</select><small>Leads do SZ Chat entram automaticamente como origem SZ Chat.</small></div></div>
+        <div class="form-row"><div class="field"><label>Telefone</label><input name="clientPhone" value="${esc(opp.clientPhone||'')}" placeholder="(55) 99999-9999"></div><div class="field"><label>E-mail</label><input name="clientEmail" value="${esc(opp.clientEmail||'')}"></div></div>
 
         <div class="section-title">Dados de endereço</div>
         <div class="form-row three"><div class="field"><label>CEP</label><input name="cep" value="${esc(opp.cep||'')}" placeholder="00000-000"><small data-cep-status>Informe o CEP para buscar rua, bairro, cidade e UF automaticamente.</small></div><div class="field"><label>Cidade</label><input name="city" value="${esc(opp.city||user.city||'')}"></div><div class="field"><label>UF</label><input name="uf" maxlength="2" value="${esc(opp.uf||'RS')}"></div></div>
@@ -3914,13 +3826,19 @@ function fmtTime(d){ d=new Date(d); return pad(d.getHours())+':'+pad(d.getMinute
 function api(method, path, body){
   return fetch(path,{
     method,
-    headers: typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'},
+    headers: (function(){
+      const h = typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'};
+      h['Content-Type'] = h['Content-Type'] || 'application/json';
+      const u = CS.user || (window._cs68 && window._cs68.user);
+      if(u && u.id && !h['x-user-id']) h['x-user-id'] = String(u.id);
+      return h;
+    })(),
     body: body ? JSON.stringify(body) : undefined,
   }).then(async r=>{
     const d = await r.json().catch(()=>null);
     if(!r.ok) throw new Error(d?.error||'Erro '+r.status);
     return d;
-  }).catch(e=>{ console.warn('[Chat68]',method,path,e.message); return null; });
+  }).catch(e=>{ window.__chat68LastError=e.message; console.warn('[Chat68]',method,path,e.message); return null; });
 }
 
 // ── Som ──────────────────────────────────────────────────────────────────────
@@ -3951,7 +3869,7 @@ const CSS = `
 #c68-newbar{display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid #1e2538}
 #c68-newph{flex:1;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:6px 10px;font-size:12px;color:#c8d0e8;outline:none;font-family:monospace}
 #c68-newph::placeholder{color:#4a5580}
-.c68-newbtn{background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer}
+.c68-newbtn{background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer}.c68-newbtn.w100{width:100%;height:34px;font-weight:800}
 .c68-newbtn:hover{background:rgba(37,211,102,.2)}
 #c68-list{flex:1;overflow-y:auto}
 #c68-list::-webkit-scrollbar{width:4px}
@@ -4066,7 +3984,7 @@ const CSS = `
 .c68-modal{background:#141820;border:1px solid #263050;border-radius:12px;padding:22px;width:340px;max-width:92vw}
 .c68-modal h3{font-size:14px;font-weight:700;color:#c8d0e8;margin:0 0 16px}
 .c68-modal label{display:block;font-size:11px;font-weight:600;color:#7b8ab8;margin-bottom:4px}
-.c68-modal select,.c68-modal textarea{width:100%;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:8px 10px;font-size:12px;color:#c8d0e8;outline:none;margin-bottom:10px}
+.c68-modal select,.c68-modal textarea,.c68-modal input{width:100%;background:#1b2130;border:1px solid #263050;border-radius:7px;padding:8px 10px;font-size:12px;color:#c8d0e8;outline:none;margin-bottom:10px}
 .c68-mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
 .c68-mbtns button{padding:8px 16px;border-radius:7px;font-size:12px;cursor:pointer}
 .c68-bok{background:#25d366;color:#000;border:none}.c68-bok:hover{background:#1aad50}
@@ -4093,8 +4011,7 @@ function buildHtml(){
       <input id="c68-search" type="text" placeholder="Buscar conversa ou número..." oninput="_c68filter(this.value)">
     </div>
     <div id="c68-newbar">
-      <input id="c68-newph" type="text" placeholder="5555999999999" maxlength="15" oninput="this.value=this.value.replace(/\\D/g,'')">
-      <button class="c68-newbtn" onclick="_c68openNew()">✉️ Abrir</button>
+      <button class="c68-newbtn w100" onclick="_c68openNewModal()">➕ Novo atendimento</button>
     </div>
     <div id="c68-list"><div style="padding:12px;font-size:11px;color:#4a5580;font-family:monospace">Carregando...</div></div>
   </div>
@@ -4104,12 +4021,28 @@ function buildHtml(){
     <div id="c68-empty">
       <span>💬</span>
       <p style="font-size:13px;color:#7b8ab8">Selecione uma conversa</p>
-      <small style="font-size:11px;color:#4a5580">ou abra um número novo ao lado</small>
+      <small style="font-size:11px;color:#4a5580">ou clique em Novo atendimento e escolha uma fila</small>
     </div>
   </div>
 
   <!-- Painel -->
   <div id="c68-panel"></div>
+</div>
+
+<!-- Modal novo atendimento -->
+<div class="c68-mbg" id="c68-newmodal">
+  <div class="c68-modal">
+    <h3>➕ Novo atendimento</h3>
+    <label>Fila de atendimento</label>
+    <select id="c68-newq"><option value="">Carregando filas...</option></select>
+    <label>Número do cliente</label>
+    <input id="c68-newph" type="text" placeholder="5599999999999" maxlength="15" oninput="this.value=this.value.replace(/\D/g,'')">
+    <small style="display:block;color:#4a5580;margin:-4px 0 12px;font-size:11px">O atendimento será aberto usando a instância Z-API vinculada à fila.</small>
+    <div class="c68-mbtns">
+      <button class="c68-bcancel" onclick="_c68closeNewModal()">Cancelar</button>
+      <button class="c68-bok" onclick="_c68openNew()">Abrir atendimento</button>
+    </div>
+  </div>
 </div>
 
 <!-- Modal transferência -->
@@ -4151,13 +4084,29 @@ function _c68bindEvents(user){
     CS.filtered = CS.convs.filter(c=>(c.client_name||'').toLowerCase().includes(lq)||(c.phone||'').includes(lq));
     _c68renderList(user);
   };
+  window._c68renderQueueSelect = () => {
+    const qsel=document.getElementById('c68-newq');
+    if(!qsel) return;
+    qsel.innerHTML = '<option value="">Selecione a fila...</option>' + CS.queues.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join('');
+    if(CS.queues.length===1) qsel.value = CS.queues[0].id;
+  };
+  window._c68openNewModal = () => {
+    _c68renderQueueSelect();
+    document.getElementById('c68-newmodal')?.classList.add('on');
+    setTimeout(()=>document.getElementById('c68-newph')?.focus(),80);
+  };
+  window._c68closeNewModal = () => document.getElementById('c68-newmodal')?.classList.remove('on');
   window._c68openNew = async () => {
     const el=document.getElementById('c68-newph');
+    const qsel=document.getElementById('c68-newq');
     const ph=(el.value||'').replace(/\D/g,'');
-    if(ph.length<10) return;
-    el.value='';
-    const r=await api('POST','/api/chat/conversations',{phone:ph});
+    const queueId=qsel?.value ? Number(qsel.value) : null;
+    if(!queueId){ alert('Selecione a fila de atendimento.'); return; }
+    if(ph.length<10){ alert('Informe o número com DDD.'); return; }
+    const r=await api('POST','/api/chat/conversations',{phone:ph, queueId});
     if(!r) return;
+    el.value='';
+    _c68closeNewModal();
     await _c68loadList(user);
     _c68openConv(r.id,user);
   };
@@ -4234,11 +4183,7 @@ function _c68bindEvents(user){
 // ── Lista de conversas ────────────────────────────────────────────────────────
 async function _c68loadList(user){
   const data=await api('GET','/api/chat/conversations');
-  if(!data){
-    const el=document.getElementById('c68-list');
-    if(el) el.innerHTML='<div style="padding:12px;font-size:11px;color:#fca5a5;font-family:monospace">Erro ao carregar conversas. Verifique o banco/migrations e recarregue a tela.</div>';
-    return;
-  }
+  if(!data) return;
   CS.convs=data; CS.filtered=data;
   _c68renderList(user);
   // carrega filas e usuários para modal
@@ -4247,6 +4192,7 @@ async function _c68loadList(user){
     api('GET','/api/whatsapp/users'),
   ]);
   CS.queues=q||[]; CS.users=u||[];
+  if(typeof _c68renderQueueSelect === 'function') _c68renderQueueSelect();
 }
 
 function _c68renderList(user){
@@ -4555,6 +4501,359 @@ function _c68scroll(){ const b=document.getElementById('c68-msgs'); if(b) b.scro
   window.loadWhatsV65 = window.loadWhatsV68C || window.loadWhatsV65;
 })();
 </script>
+
+
+<style id="chat68-sulnet-modern-v68e">
+/* v68e — Tema Sulnet moderno para o Chat Operacional */
+:root{
+  --chat-orange:#ef3f0a;
+  --chat-orange-2:#ff6a2a;
+  --chat-black:#0f172a;
+  --chat-gray-900:#111827;
+  --chat-gray-700:#374151;
+  --chat-gray-500:#6b7280;
+  --chat-gray-300:#d1d5db;
+  --chat-gray-200:#e5e7eb;
+  --chat-gray-100:#f3f4f6;
+  --chat-gray-50:#f8fafc;
+  --chat-white:#ffffff;
+}
+
+/* estrutura principal */
+#chat68{
+  background:var(--chat-white)!important;
+  border:1px solid var(--chat-gray-200)!important;
+  box-shadow:0 18px 45px rgba(15,23,42,.08)!important;
+}
+
+#c68-sidebar{
+  background:var(--chat-white)!important;
+  border-right:1px solid var(--chat-gray-200)!important;
+}
+
+#c68-sidebar-top{
+  background:linear-gradient(180deg,#ffffff,#fbfbfc)!important;
+  border-bottom:1px solid var(--chat-gray-200)!important;
+  padding:16px!important;
+}
+
+#c68-sidebar-top h3{
+  color:var(--chat-black)!important;
+  font-size:14px!important;
+  font-weight:900!important;
+  letter-spacing:-.2px!important;
+}
+
+/* busca e novo atendimento */
+#c68-search,
+#c68-newph{
+  background:var(--chat-gray-50)!important;
+  border:1px solid var(--chat-gray-200)!important;
+  color:var(--chat-black)!important;
+  border-radius:10px!important;
+  height:39px!important;
+}
+
+#c68-search:focus,
+#c68-newph:focus,
+#c68-newq:focus{
+  border-color:var(--chat-orange)!important;
+  box-shadow:0 0 0 4px rgba(239,63,10,.10)!important;
+}
+
+#c68-newbar{
+  background:#fff!important;
+  border-bottom:1px solid var(--chat-gray-200)!important;
+  padding:12px 16px!important;
+}
+
+.c68-newbtn,
+.c68-newbtn.w100{
+  background:linear-gradient(135deg,var(--chat-orange),var(--chat-orange-2))!important;
+  color:#fff!important;
+  border:0!important;
+  border-radius:10px!important;
+  box-shadow:0 8px 18px rgba(239,63,10,.20)!important;
+  font-weight:900!important;
+}
+
+/* lista de conversas */
+.c68-item{
+  background:#fff!important;
+  border-bottom:1px solid #eef0f4!important;
+  color:var(--chat-black)!important;
+  transition:.15s ease!important;
+}
+
+.c68-item:hover{
+  background:#fff7ed!important;
+}
+
+.c68-item.sel{
+  background:#fff4ec!important;
+  border-left:4px solid var(--chat-orange)!important;
+  box-shadow:inset 0 0 0 1px rgba(239,63,10,.08)!important;
+}
+
+.c68-av,
+.c68-hav{
+  background:linear-gradient(135deg,#111827,#374151)!important;
+  color:#fff!important;
+  border:2px solid #fff!important;
+  box-shadow:0 4px 12px rgba(15,23,42,.12)!important;
+}
+
+.c68-iname{
+  color:var(--chat-black)!important;
+  font-weight:900!important;
+}
+
+.c68-iprev,
+.c68-itime{
+  color:var(--chat-gray-500)!important;
+}
+
+.c68-ibadge{
+  background:var(--chat-orange)!important;
+  color:#fff!important;
+}
+
+.c68-istatus.open,
+.c68-istatus.in_attendance{
+  background:#dcfce7!important;
+  color:#166534!important;
+}
+
+.c68-istatus.waiting,
+.c68-istatus.new{
+  background:#fff7ed!important;
+  color:var(--chat-orange)!important;
+}
+
+/* área central */
+#c68-mid{
+  background:#ffffff!important;
+}
+
+#c68-empty{
+  background:radial-gradient(circle at center,rgba(239,63,10,.08),transparent 35%),#fff!important;
+  color:var(--chat-gray-500)!important;
+}
+
+#c68-empty span{
+  opacity:.20!important;
+  color:var(--chat-orange)!important;
+}
+
+#c68-empty p{
+  color:var(--chat-black)!important;
+  font-weight:900!important;
+}
+
+/* cabeçalho da conversa */
+#c68-head{
+  background:#fff!important;
+  border-bottom:1px solid var(--chat-gray-200)!important;
+  box-shadow:0 1px 0 rgba(15,23,42,.02)!important;
+}
+
+.c68-hname{
+  color:var(--chat-black)!important;
+  font-weight:900!important;
+}
+
+.c68-hsub{
+  color:var(--chat-gray-500)!important;
+}
+
+.c68-hbtn{
+  background:#fff!important;
+  border:1px solid var(--chat-gray-200)!important;
+  color:var(--chat-gray-700)!important;
+  border-radius:9px!important;
+}
+
+.c68-hbtn:hover{
+  background:#fff7ed!important;
+  border-color:#fed7aa!important;
+  color:var(--chat-orange)!important;
+}
+
+.c68-hbtn.red{
+  color:#991b1b!important;
+  background:#fff!important;
+  border-color:#fecaca!important;
+}
+
+.c68-hbtn.red:hover{
+  background:#fee2e2!important;
+}
+
+/* mensagens */
+#c68-msgs{
+  background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)!important;
+  padding:24px 32px!important;
+}
+
+.c68-bub{
+  border-radius:16px!important;
+  font-size:13px!important;
+  line-height:1.45!important;
+  box-shadow:0 4px 14px rgba(15,23,42,.06)!important;
+}
+
+.c68-bub.recv{
+  background:#fff!important;
+  color:var(--chat-black)!important;
+  border:1px solid var(--chat-gray-200)!important;
+}
+
+.c68-bub.sent{
+  background:#fff3ea!important;
+  color:#1f2937!important;
+  border:1px solid #fed7aa!important;
+}
+
+.c68-bub.sent .c68-meta,
+.c68-bub.recv .c68-meta{
+  color:var(--chat-gray-500)!important;
+}
+
+.c68-meta{
+  font-size:10.5px!important;
+}
+
+/* composer */
+#c68-composer{
+  background:#fff!important;
+  border-top:1px solid var(--chat-gray-200)!important;
+  box-shadow:0 -8px 24px rgba(15,23,42,.04)!important;
+}
+
+#c68-text{
+  background:#f8fafc!important;
+  color:var(--chat-black)!important;
+  border:1px solid var(--chat-gray-200)!important;
+  border-radius:14px!important;
+}
+
+#c68-text:focus{
+  border-color:var(--chat-orange)!important;
+  box-shadow:0 0 0 4px rgba(239,63,10,.10)!important;
+}
+
+.c68-cbtn{
+  background:#fff!important;
+  border:1px solid var(--chat-gray-200)!important;
+  color:var(--chat-gray-700)!important;
+  border-radius:12px!important;
+}
+
+.c68-cbtn:hover{
+  background:#fff7ed!important;
+  color:var(--chat-orange)!important;
+  border-color:#fed7aa!important;
+}
+
+#c68-send{
+  background:linear-gradient(135deg,var(--chat-orange),var(--chat-orange-2))!important;
+  color:#fff!important;
+  border:0!important;
+  border-radius:13px!important;
+  box-shadow:0 8px 18px rgba(239,63,10,.22)!important;
+}
+
+#c68-send:hover{
+  transform:translateY(-1px)!important;
+}
+
+/* painel lateral */
+#c68-side{
+  background:#fff!important;
+  border-left:1px solid var(--chat-gray-200)!important;
+}
+
+#c68-side h3,
+#c68-side h4{
+  color:var(--chat-black)!important;
+}
+
+.c68-side-card,
+.c68-panel-card{
+  background:#fff!important;
+  border:1px solid var(--chat-gray-200)!important;
+  border-radius:14px!important;
+  box-shadow:0 2px 10px rgba(15,23,42,.04)!important;
+}
+
+.c68-side-label{
+  color:var(--chat-gray-500)!important;
+}
+
+.c68-side-value{
+  color:var(--chat-black)!important;
+}
+
+/* modais */
+.c68-mbg{
+  background:rgba(15,23,42,.45)!important;
+  backdrop-filter:blur(4px)!important;
+}
+
+.c68-modal{
+  background:#fff!important;
+  border:1px solid var(--chat-gray-200)!important;
+  color:var(--chat-black)!important;
+  border-radius:18px!important;
+  box-shadow:0 22px 70px rgba(15,23,42,.22)!important;
+}
+
+.c68-modal h3{
+  color:var(--chat-black)!important;
+}
+
+.c68-modal label{
+  color:var(--chat-gray-700)!important;
+  font-weight:850!important;
+}
+
+.c68-modal select,
+.c68-modal textarea,
+.c68-modal input{
+  background:#f8fafc!important;
+  border:1px solid var(--chat-gray-200)!important;
+  color:var(--chat-black)!important;
+  border-radius:10px!important;
+}
+
+.c68-bok{
+  background:linear-gradient(135deg,var(--chat-orange),var(--chat-orange-2))!important;
+  color:#fff!important;
+  border:0!important;
+  border-radius:11px!important;
+}
+
+.c68-bcancel{
+  background:#fff!important;
+  color:var(--chat-gray-700)!important;
+  border:1px solid var(--chat-gray-200)!important;
+  border-radius:11px!important;
+}
+
+/* estados auxiliares */
+#c68-loading,
+.c68-loading,
+.c68-empty{
+  color:var(--chat-gray-500)!important;
+}
+
+.c68-pill,
+.c68-tag{
+  background:#fff7ed!important;
+  color:var(--chat-orange)!important;
+  border:1px solid #fed7aa!important;
+}
+</style>
 
 </body>
 </html>

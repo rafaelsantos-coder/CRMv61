@@ -283,11 +283,11 @@ app.get('/health', async (req, res) => {
   } catch {
     dbStatus = process.env.DATABASE_URL ? 'error' : 'not_configured';
   }
-  res.status(200).json({ ok: true, app: 'Sistema Integrado Sulnet V1', version: 'v68c-final', db: dbStatus, dbOk, uptime: Math.floor(process.uptime()) });
+  res.status(200).json({ ok: true, app: 'Sistema Integrado Sulnet V1', version: 'v68e-chat-visual', db: dbStatus, dbOk, uptime: Math.floor(process.uptime()) });
 });
 
 app.get('/api/config', (req, res) => {
-  res.json({ app: 'Sistema Integrado Sulnet V1', googleCalendarConfigured: !!process.env.GOOGLE_CALENDAR_CLIENT_ID, googleClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID || '', version: 'v68c-final', dbConfigured: !!process.env.DATABASE_URL });
+  res.json({ app: 'Sistema Integrado Sulnet V1', googleCalendarConfigured: !!process.env.GOOGLE_CALENDAR_CLIENT_ID, googleClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID || '', version: 'v68e-chat-visual', dbConfigured: !!process.env.DATABASE_URL });
 });
 
 app.use('/api/auth', authRoutes);
@@ -333,6 +333,13 @@ function patchIndexHtml(html) {
   const oldActions = '<td><button class="whats-mini-btn" onclick="deleteWhatsQueue(${q.id})">Desativar</button></td>';
   const queueActions = `<td><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="whats-mini-btn" onclick="editWhatsQueue(\${q.id})">Editar</button><button class="whats-mini-btn" onclick="toggleWhatsQueue(\${q.id}, \${q.is_active ? 'false' : 'true'})">\${q.is_active ? 'Desativar' : 'Ativar'}</button><button class="whats-mini-btn" onclick="hardDeleteWhatsQueue(\${q.id})">Excluir</button></div></td>`;
   let patched = html.replace(oldActions, queueActions);
+  patched = patched.replace("headers: typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'},", `headers: (function(){
+      const h = typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'};
+      h['Content-Type'] = h['Content-Type'] || 'application/json';
+      const u = CS.user || (window._cs68 && window._cs68.user);
+      if(u && u.id && !h['x-user-id']) h['x-user-id'] = String(u.id);
+      return h;
+    })(),`);
   patched = patched.replace("}).catch(e=>{ console.warn('[Chat68]',method,path,e.message); return null; });", "}).catch(e=>{ window.__chat68LastError=e.message; console.warn('[Chat68]',method,path,e.message); return null; });");
   patched = patched.replace('Erro ao carregar conversas. Verifique o banco/migrations e recarregue a tela.', "Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'");
 
@@ -368,7 +375,7 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
   window.__chat68Reload=function(){location.reload();};
 })();
 </script>`;
-  if (!patched.includes('chat68-layout-v69')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
+  if (!patched.includes('chat68-layout-v69') && !patched.includes('id="chat68-css"')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
   patched = patched.replace(
     "if(el) el.innerHTML='<div style=\"padding:12px;font-size:11px;color:#fca5a5;font-family:monospace\">Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'</div>';",
     "if(el) el.innerHTML='<div class=\"c68-error-card\"><strong>Não foi possível carregar as conversas</strong><div>'+esc(window.__chat68LastError||'Falha na API do chat')+'</div><button onclick=\"window.__chat68Reload&&window.__chat68Reload()\">Recarregar chat</button></div>';"
@@ -417,7 +424,7 @@ async function start() {
   try { await runMigrations(); }
   catch (err) { console.error(`Falha ao preparar banco: ${err.message}`); console.error('O servidor vai iniciar, mas rotas que dependem do schema podem falhar.'); }
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Sulnet V1 v68c-final rodando na porta ${PORT}`);
+    console.log(`✅ Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
     console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
     console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
     console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
