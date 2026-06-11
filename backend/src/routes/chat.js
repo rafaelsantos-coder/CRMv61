@@ -387,7 +387,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
          FROM opportunities o
          LEFT JOIN users u ON u.id = o.assigned_user_id
          LEFT JOIN funnels f ON f.id = o.funnel_id
-         LEFT JOIN stages s ON s.funnel_id = f.id
+         LEFT JOIN stages s ON s.id = o.stage_id
          LEFT JOIN products p ON p.id = o.product_id
          LEFT JOIN categories c ON c.id = p.category_id
          WHERE o.id = $1`,
@@ -401,7 +401,7 @@ router.get('/conversations/:id/panel', async (req, res) => {
          FROM opportunities o
          LEFT JOIN users u ON u.id = o.assigned_user_id
          LEFT JOIN funnels f ON f.id = o.funnel_id
-         LEFT JOIN stages s ON s.funnel_id = f.id
+         LEFT JOIN stages s ON s.id = o.stage_id
          WHERE o.client_phone = ANY($1::text[]) OR o.client_cpf = ANY($1::text[])
          ORDER BY o.created_at DESC LIMIT 1`,
         [variants]
