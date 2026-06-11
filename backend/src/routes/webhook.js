@@ -1,6 +1,6 @@
 /**
- * POST /webhook — Recebe callbacks da Z-API.
- * Não requer autenticação JWT.
+ * POST /webhook - Recebe callbacks da Z-API.
+ * Nao requer autenticacao JWT.
  */
 
 const router = require('express').Router();
@@ -9,6 +9,7 @@ const zapi = require('../services/zapi');
 const queueDistribution = require('../services/queueDistribution');
 
 const seenMsgIds = new Set();
+const CLOSED_STATUSES = new Set(['closed', 'lost', 'converted', 'transferred']);
 
 function digitsOnly(raw) {
   return String(raw || '').split('@')[0].replace(/\D/g, '');
@@ -56,6 +57,16 @@ function zapiPhone(raw) {
   const variants = phoneVariants(raw);
   return variants.find(v => v.startsWith('55') && (v.length === 12 || v.length === 13)) ||
     (canonicalPhone(raw) ? '55' + canonicalPhone(raw) : digitsOnly(raw));
+}
+
+function isClosedConversationStatus(status) {
+  return CLOSED_STATUSES.has(String(status || '').toLowerCase());
+}
+
+function isMeaningfulText(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  return !['unsupported', '[object object]'].includes(text.toLowerCase());
 }
 
 router.post('/', async (req, res) => {
@@ -159,6 +170,8 @@ router.post('/', async (req, res) => {
       ]
     );
 
+    const assignmentUserId = await resolveAssignmentForIncoming(conversation, queue, assignedByRule);
+
     await pool.query(
       `UPDATE conversations SET
          phone = COALESCE(NULLIF(phone,''), $4),
@@ -166,10 +179,25 @@ router.post('/', async (req, res) => {
          unread_count = CASE WHEN $2 = true THEN unread_count ELSE unread_count + 1 END,
          last_message_at = NOW(),
          client_name = COALESCE(NULLIF($3,''), client_name),
-         assigned_user_id = COALESCE(assigned_user_id, $6),
+         assigned_user_id = COALESCE($6, assigned_user_id),
+         queue_id = COALESCE(queue_id, $7),
+         api_instance_id = COALESCE(api_instance_id, $8),
+         status = CASE
+           WHEN status IN ('closed','lost','converted','transferred') THEN 'new'
+           ELSE COALESCE(status, 'new')
+         END,
          updated_at = NOW()
        WHERE id = $1`,
-      [conversation.id, !!payload.fromMe, clientName !== phone ? clientName : null, zapiPhone(phone), canonicalPhone(phone), assignedByRule]
+      [
+        conversation.id,
+        !!payload.fromMe,
+        clientName !== phone ? clientName : null,
+        zapiPhone(phone),
+        canonicalPhone(phone),
+        assignmentUserId,
+        queue?.id || null,
+        apiInstance?.id || null,
+      ]
     );
 
     await markEvent(evtId);
@@ -183,6 +211,29 @@ router.post('/', async (req, res) => {
 
 async function markEvent(id) {
   if (id) await pool.query('UPDATE webhook_events SET processed = true WHERE id = $1', [id]).catch(() => {});
+}
+
+async function resolveAssignmentForIncoming(conversation, queue, suggestedUserId) {
+  const currentUserId = conversation?.assigned_user_id ? Number(conversation.assigned_user_id) : null;
+  const nextUserId = suggestedUserId ? Number(suggestedUserId) : null;
+
+  if (!currentUserId) return nextUserId || null;
+  if (isClosedConversationStatus(conversation.status)) return nextUserId || currentUserId;
+  if (!queue?.id) return null;
+
+  const { rows } = await pool.query(
+    `SELECT 1
+       FROM queue_users qu
+       JOIN users u ON u.id = qu.user_id
+      WHERE qu.queue_id=$1
+        AND qu.user_id=$2
+        AND qu.is_active=true
+        AND u.active=true
+      LIMIT 1`,
+    [queue.id, currentUserId]
+  ).catch(() => ({ rows: [] }));
+
+  return rows.length ? null : (nextUserId || null);
 }
 
 async function findOrCreateConversation({ phone, aliases, clientName, payload, apiInstance, queue, assignedByRule }) {
@@ -355,7 +406,7 @@ async function registerAliases(conversationId, aliases) {
 
 function firstText(...values) {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'string' && isMeaningfulText(value)) return value.trim();
     if (value && typeof value === 'object') {
       const nested = firstText(
         value.message,
