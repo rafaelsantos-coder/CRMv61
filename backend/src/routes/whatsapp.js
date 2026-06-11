@@ -180,8 +180,173 @@ async function getQueueFull(id) {
 }
 
 // ── FILAS DE WHATSAPP ──────────────────────────────────────────────────────
+async function getApiInstanceRecord(id) {
+  if (!id) return null;
+  const { rows } = await pool.query('SELECT * FROM api_instances WHERE id=$1 LIMIT 1', [id]);
+  return rows[0] || null;
+}
+
+function buildWebhookUrl(req, fallback = '') {
+  const host = req.get('x-forwarded-host') || req.get('host');
+  if (!host) return fallback || '';
+  let proto = (req.get('x-forwarded-proto') || '').split(',')[0].trim() || req.protocol || 'https';
+  if (/railway\.app$/i.test(host) || host.includes('.up.railway.app')) proto = 'https';
+  return `${proto}://${host}/webhook`;
+}
+
+function cleanPhoneFromStatus(status = {}) {
+  const phone =
+    status.connectedPhone ||
+    status.phone ||
+    status.number ||
+    status.wid ||
+    status.phoneNumber ||
+    status?.me?.id ||
+    status?.account?.phone ||
+    null;
+  return phone ? String(phone).replace(/[^0-9]/g, '') : null;
+}
+
+function isZapiConnected(status = {}) {
+  return !!(
+    status.connected ||
+    status.smartphoneConnected ||
+    status.phoneConnected ||
+    status.isConnected ||
+    status.connectedPhone
+  );
+}
+
+function queueStatusLabel(apiStatus, hasCreds) {
+  if (apiStatus === 'connected') return 'Autenticado';
+  if (!hasCreds) return 'Pendente';
+  if (apiStatus === 'pending') return 'Monitorando';
+  return 'Reconectando';
+}
+
+async function safeCheckStatus(creds) {
+  if (!creds?.instance_id || !creds?.token) {
+    return { ok: false, connected: false, error: 'Credenciais Z-API incompletas.' };
+  }
+  try {
+    const raw = await zapi.checkStatus(creds);
+    return {
+      ok: true,
+      connected: isZapiConnected(raw),
+      phoneNumber: cleanPhoneFromStatus(raw),
+      raw,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      connected: false,
+      phoneNumber: null,
+      error: err.message || String(err),
+    };
+  }
+}
+
+async function safeRegisterWebhook(creds, webhookUrl) {
+  if (!webhookUrl) return { ok: false, error: 'Webhook nao disponivel.' };
+  try {
+    const raw = zapi.registerEveryWebhook
+      ? await zapi.registerEveryWebhook(creds, webhookUrl)
+      : await zapi.registerWebhook(creds, webhookUrl);
+    return { ok: true, raw };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+}
+
+async function keepQueueOnline(queueId, req) {
+  const q = await getQueueFull(queueId);
+  if (!q) return { ok: false, error: 'Fila nao encontrada.' };
+  if (!q.is_active) return { ok: false, error: 'Fila desativada.' };
+  if (!q.api_instance_id) return { ok: false, error: 'Fila sem instancia Z-API configurada.' };
+
+  const creds = await zapi.getCreds(q.api_instance_id);
+  if (!creds?.instance_id || !creds?.token) {
+    return { ok: false, error: 'Credenciais Z-API nao encontradas.' };
+  }
+
+  const webhookUrl = buildWebhookUrl(req, q.webhook_url || creds.webhook_url || '');
+  const status = await safeCheckStatus(creds);
+  const webhook = await safeRegisterWebhook(creds, webhookUrl);
+  const apiStatus = status.connected ? 'connected' : (status.ok || webhook.ok ? 'disconnected' : 'error');
+  const cleanPhone = status.phoneNumber || null;
+  const serverStatus = queueStatusLabel(apiStatus, true);
+  const metadataPatch = {
+    lastHealthCheckAt: new Date().toISOString(),
+    lastStatusOk: status.ok,
+    lastWebhookOk: webhook.ok,
+    lastError: status.error || webhook.error || null,
+  };
+
+  await pool.query(`
+    UPDATE api_instances SET
+      status=$1,
+      webhook_url=COALESCE($2, webhook_url),
+      phone_number=COALESCE($3, phone_number),
+      metadata=COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
+      last_status_at=NOW(),
+      updated_at=NOW()
+    WHERE id=$5
+  `, [
+    apiStatus,
+    webhookUrl || null,
+    cleanPhone,
+    JSON.stringify(metadataPatch),
+    q.api_instance_id,
+  ]);
+
+  await pool.query(`
+    UPDATE attendance_queues SET
+      server_status=$1,
+      phone_number=COALESCE($2, phone_number),
+      updated_at=NOW()
+    WHERE id=$3
+  `, [serverStatus, cleanPhone, q.id]);
+
+  return {
+    ok: true,
+    connected: status.connected,
+    monitoring: !status.connected,
+    statusOk: status.ok,
+    webhookOk: webhook.ok,
+    webhookUrl,
+    phoneNumber: cleanPhone,
+    error: status.error || webhook.error || null,
+    raw: status.raw || null,
+  };
+}
+
+let lastQueueHealthRun = 0;
+function maybeRefreshActiveQueues(req) {
+  const now = Date.now();
+  if (now - lastQueueHealthRun < 60000) return;
+  lastQueueHealthRun = now;
+  refreshActiveQueues(req).catch(err => console.warn('[WHATSAPP HEALTH]', err.message));
+}
+
+async function refreshActiveQueues(req) {
+  const { rows } = await pool.query(`
+    SELECT q.id
+    FROM attendance_queues q
+    JOIN api_instances ai ON ai.id = q.api_instance_id
+    WHERE q.is_active = true
+      AND ai.is_active = true
+      AND COALESCE(q.queue_type, 'zapi') = 'zapi'
+    ORDER BY q.updated_at DESC
+    LIMIT 20
+  `);
+  for (const row of rows) {
+    await keepQueueOnline(row.id, req).catch(err => console.warn('[WHATSAPP HEALTH QUEUE]', row.id, err.message));
+  }
+}
+
 router.get('/queues', async (req, res) => {
   try {
+    maybeRefreshActiveQueues(req);
     const { rows } = await pool.query(`
       SELECT
         q.*,
@@ -226,10 +391,14 @@ router.post('/queues', async (req, res) => {
     await client.query('BEGIN');
 
     const d = req.body || {};
-    if (!d.name) return res.status(400).json({ error: 'Nome da fila é obrigatório.' });
+    if (!d.name) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nome da fila é obrigatório.' });
+    }
 
     const queueType = d.queueType || d.queue_type || 'zapi';
     if (queueType !== 'zapi') {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Neste primeiro momento, somente fila do tipo Z-API está habilitada.' });
     }
 
@@ -244,8 +413,8 @@ router.post('/queues', async (req, res) => {
       };
 
       if (d.testConnection) {
-        const status = await zapi.checkStatus(creds);
-        apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
+        const status = await safeCheckStatus(creds);
+        apiStatus = status.connected ? 'connected' : (status.ok ? 'disconnected' : 'error');
       }
 
       const { rows: aiRows } = await client.query(`
@@ -294,12 +463,15 @@ router.post('/queues', async (req, res) => {
       d.afterHoursMessage || '',
       JSON.stringify(d.settings || {}),
       JSON.stringify(d.messagesConfig || {}),
-      apiStatus === 'connected' ? 'Autenticado' : 'Pendente',
+      queueStatusLabel(apiStatus, !!apiInstanceId),
       toBool(d.isActive),
     ]);
 
     await client.query('COMMIT');
-    res.status(201).json(await getQueueFull(rows[0].id));
+    const health = apiInstanceId
+      ? await keepQueueOnline(rows[0].id, req).catch(err => ({ ok: false, error: err.message }))
+      : null;
+    res.status(201).json({ ...(await getQueueFull(rows[0].id)), health });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erro ao criar fila: ' + err.message });
@@ -316,21 +488,43 @@ router.patch('/queues/:id', async (req, res) => {
     const d = req.body || {};
 
     const current = await getQueueFull(id);
-    if (!current) return res.status(404).json({ error: 'Fila não encontrada.' });
+    if (!current) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Fila não encontrada.' });
+    }
 
     let apiInstanceId = current.api_instance_id || null;
     let apiStatus = current.api_status || 'pending';
+    const existingApi = await getApiInstanceRecord(apiInstanceId);
+    const wantsCredUpdate =
+      Object.prototype.hasOwnProperty.call(d, 'instanceId') ||
+      Object.prototype.hasOwnProperty.call(d, 'token') ||
+      Object.prototype.hasOwnProperty.call(d, 'clientToken') ||
+      Object.prototype.hasOwnProperty.call(d, 'apiUrl') ||
+      d.testConnection;
 
-    if (d.instanceId && d.token) {
+    if (wantsCredUpdate) {
+      const instanceId = String(d.instanceId || existingApi?.instance_id || '').trim();
+      const token = String(d.token || existingApi?.token || '').trim();
+      const incomingClientToken = Object.prototype.hasOwnProperty.call(d, 'clientToken')
+        ? String(d.clientToken || '').trim()
+        : null;
+      const clientToken = incomingClientToken || existingApi?.client_token || '';
+
+      if (!instanceId || !token) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Informe ID da instancia e token na primeira integracao.' });
+      }
+
       const creds = {
-        instance_id: d.instanceId,
-        token: d.token,
-        client_token: d.clientToken || '',
+        instance_id: instanceId,
+        token,
+        client_token: clientToken,
       };
 
       if (d.testConnection) {
-        const status = await zapi.checkStatus(creds);
-        apiStatus = (status.connected || status.smartphoneConnected) ? 'connected' : 'disconnected';
+        const status = await safeCheckStatus(creds);
+        apiStatus = status.connected ? 'connected' : (status.ok ? 'disconnected' : 'error');
       }
 
       const { rows: aiRows } = await client.query(`
@@ -350,15 +544,17 @@ router.patch('/queues/:id', async (req, res) => {
         RETURNING id
       `, [
         d.name || current.name,
-        d.instanceId,
-        d.token,
-        d.clientToken || '',
+        instanceId,
+        token,
+        clientToken,
         d.phoneNumber || current.phone_number || '',
         apiStatus,
-        d.apiUrl || `https://api.z-api.io/instances/${d.instanceId}/token/${d.token}/send-text`,
+        d.apiUrl || `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`,
       ]);
       apiInstanceId = aiRows[0].id;
     }
+
+    const activeAfter = d.isActive === undefined ? current.is_active : toBool(d.isActive);
 
     await client.query(`
       UPDATE attendance_queues SET
@@ -389,13 +585,16 @@ router.patch('/queues/:id', async (req, res) => {
       d.afterHoursMessage || null,
       d.settings ? JSON.stringify(d.settings) : null,
       d.messagesConfig ? JSON.stringify(d.messagesConfig) : null,
-      apiStatus === 'connected' ? 'Autenticado' : (current.server_status || 'Pendente'),
-      d.isActive === undefined ? null : toBool(d.isActive),
+      queueStatusLabel(apiStatus, !!apiInstanceId),
+      d.isActive === undefined ? null : activeAfter,
       id,
     ]);
 
     await client.query('COMMIT');
-    res.json(await getQueueFull(id));
+    const health = apiInstanceId && activeAfter
+      ? await keepQueueOnline(id, req).catch(err => ({ ok: false, error: err.message }))
+      : null;
+    res.json({ ...(await getQueueFull(id)), health });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Erro ao atualizar fila: ' + err.message });
@@ -406,7 +605,21 @@ router.patch('/queues/:id', async (req, res) => {
 
 router.delete('/queues/:id', async (req, res) => {
   try {
-    await pool.query('UPDATE attendance_queues SET is_active=false, updated_at=NOW() WHERE id=$1', [req.params.id]);
+    const { rows } = await pool.query(
+      'UPDATE attendance_queues SET is_active=false, updated_at=NOW() WHERE id=$1 RETURNING api_instance_id',
+      [req.params.id]
+    );
+    const apiInstanceId = rows[0]?.api_instance_id;
+    if (apiInstanceId) {
+      await pool.query(`
+        UPDATE api_instances SET is_active=false, status='disabled', updated_at=NOW()
+        WHERE id=$1
+          AND NOT EXISTS (
+            SELECT 1 FROM attendance_queues
+            WHERE api_instance_id=$1 AND is_active=true
+          )
+      `, [apiInstanceId]);
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao desativar fila: ' + err.message });
@@ -415,63 +628,21 @@ router.delete('/queues/:id', async (req, res) => {
 
 router.post('/queues/:id/test-status', async (req, res) => {
   try {
-    const q = await getQueueFull(req.params.id);
-    if (!q || !q.api_instance_id) return res.status(400).json({ error: 'Fila sem instância Z-API configurada.' });
-
-    const creds = await zapi.getCreds(q.api_instance_id);
-    const status = await zapi.checkStatus(creds);
-    const connected = !!(status.connected || status.smartphoneConnected);
-
-    // Número conectado vem da Z-API automaticamente
-    const phoneNumber = status.connectedPhone || status.phone || status.number || status.wid || null;
-    const cleanPhone  = phoneNumber ? String(phoneNumber).replace(/[^0-9]/g, '') : null;
-
-    await pool.query(`
-      UPDATE api_instances SET
-        status=$1, last_status_at=NOW(), updated_at=NOW()
-        ${cleanPhone ? ', phone_number=$3' : ''}
-      WHERE id=$2
-    `, cleanPhone
-      ? [connected ? 'connected' : 'disconnected', q.api_instance_id, cleanPhone]
-      : [connected ? 'connected' : 'disconnected', q.api_instance_id]
-    );
-
-    if (cleanPhone) {
-      await pool.query(`
-        UPDATE attendance_queues SET phone_number=$1, updated_at=NOW() WHERE id=$2
-      `, [cleanPhone, q.id]);
-    }
-
-    await pool.query(`
-      UPDATE attendance_queues SET server_status=$1, updated_at=NOW() WHERE id=$2
-    `, [connected ? 'Autenticado' : 'Desconectado', q.id]);
-
-    res.json({ ok: true, connected, phoneNumber: cleanPhone, raw: status });
+    const health = await keepQueueOnline(req.params.id, req);
+    if (!health.ok) return res.status(400).json({ error: health.error || 'Fila sem instancia Z-API configurada.' });
+    res.json({ ok: true, ...health });
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao testar Z-API: ' + err.message });
+    res.status(500).json({ error: 'Erro ao sincronizar Z-API: ' + err.message });
   }
 });
 
 router.post('/queues/:id/register-webhook', async (req, res) => {
   try {
-    const q = await getQueueFull(req.params.id);
-    if (!q || !q.api_instance_id) return res.status(400).json({ error: 'Fila sem instância Z-API configurada.' });
-
-    const creds = await zapi.getCreds(q.api_instance_id);
-    const webhookUrl = `${req.protocol}://${req.get('host')}/webhook`;
-
-    if (zapi.registerEveryWebhook) {
-      await zapi.registerEveryWebhook(creds, webhookUrl);
-    } else {
-      await zapi.registerWebhook(creds, webhookUrl);
-    }
-
-    await pool.query('UPDATE api_instances SET webhook_url=$1, updated_at=NOW() WHERE id=$2', [webhookUrl, q.api_instance_id]);
-    await pool.query('UPDATE attendance_queues SET server_status=$1, updated_at=NOW() WHERE id=$2', ['Autenticado', q.id]);
-
-    res.json({ ok: true, webhookUrl });
+    const health = await keepQueueOnline(req.params.id, req);
+    if (!health.ok) return res.status(400).json({ error: health.error || 'Fila sem instancia Z-API configurada.' });
+    res.json({ ok: true, registered: health.webhookOk, webhookUrl: health.webhookUrl, ...health });
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao registrar webhook: ' + err.message });
+    res.status(500).json({ error: 'Erro ao sincronizar webhook: ' + err.message });
   }
 });
 

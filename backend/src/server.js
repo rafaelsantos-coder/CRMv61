@@ -305,8 +305,27 @@ app.patch('/api/whatsapp/queues/:id/active', authMiddleware, async (req, res) =>
   try {
     if (!requireQueueAdmin(req, res)) return;
     const nextActive = req.body?.isActive === true || req.body?.isActive === 'true';
-    const { rows } = await pool.query('UPDATE attendance_queues SET is_active=$1, updated_at=NOW() WHERE id=$2 RETURNING id, is_active', [nextActive, req.params.id]);
+    const { rows } = await pool.query('UPDATE attendance_queues SET is_active=$1, updated_at=NOW() WHERE id=$2 RETURNING id, is_active, api_instance_id', [nextActive, req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Fila não encontrada.' });
+    const apiInstanceId = rows[0].api_instance_id;
+    if (apiInstanceId && nextActive) {
+      await pool.query(`
+        UPDATE api_instances
+        SET is_active=true,
+            status=CASE WHEN status='disabled' THEN 'pending' ELSE status END,
+            updated_at=NOW()
+        WHERE id=$1
+      `, [apiInstanceId]);
+    } else if (apiInstanceId) {
+      await pool.query(`
+        UPDATE api_instances SET is_active=false, status='disabled', updated_at=NOW()
+        WHERE id=$1
+          AND NOT EXISTS (
+            SELECT 1 FROM attendance_queues
+            WHERE api_instance_id=$1 AND is_active=true
+          )
+      `, [apiInstanceId]);
+    }
     res.json({ ok: true, queue: rows[0] });
   } catch (err) { res.status(500).json({ error: 'Erro ao alterar status da fila: ' + err.message }); }
 });
@@ -317,8 +336,19 @@ app.delete('/api/whatsapp/queues/:id/hard', authMiddleware, async (req, res) => 
     if (!requireQueueAdmin(req, res)) return;
     await client.query('BEGIN');
     await client.query('UPDATE conversations SET queue_id=NULL, updated_at=NOW() WHERE queue_id=$1', [req.params.id]).catch(() => {});
-    const { rows } = await client.query('DELETE FROM attendance_queues WHERE id=$1 RETURNING id', [req.params.id]);
+    const { rows } = await client.query('DELETE FROM attendance_queues WHERE id=$1 RETURNING id, api_instance_id', [req.params.id]);
     if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila não encontrada.' }); }
+    const apiInstanceId = rows[0].api_instance_id;
+    if (apiInstanceId) {
+      await client.query(`
+        UPDATE api_instances SET is_active=false, status='disabled', updated_at=NOW()
+        WHERE id=$1
+          AND NOT EXISTS (
+            SELECT 1 FROM attendance_queues
+            WHERE api_instance_id=$1 AND is_active=true
+          )
+      `, [apiInstanceId]);
+    }
     await client.query('COMMIT');
     res.json({ ok: true, deletedId: rows[0].id });
   } catch (err) { await client.query('ROLLBACK').catch(() => {}); res.status(500).json({ error: 'Erro ao excluir fila: ' + err.message }); }

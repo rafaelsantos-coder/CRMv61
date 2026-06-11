@@ -1686,22 +1686,26 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
   window.saveWhatsZapiConfig=async function(id){
     const q=__whatsV68CState.queues.find(x=>String(x.id)===String(id));
+    if(!q)return;
     const instanceId=document.getElementById('zapi-instance-id')?.value?.trim()||'';
     const token=document.getElementById('zapi-token')?.value?.trim()||'';
     const clientToken=document.getElementById('zapi-client-token')?.value?.trim()||'';
     // phoneNumber é obtido automaticamente via test-status
-    if(!instanceId||!token){toast('Informe ID da instância e token.','error');return}
+    const hasSavedToken=!!(q.api_instance_id&&q.instance_id);
+    if(!instanceId){toast('Informe ID da instância.','error');return}
+    if(!token&&!hasSavedToken){toast('Informe o token na primeira integração. Depois ele fica salvo.','error');return}
     try{
-      const saved=await whatsappApi('PATCH',`/api/whatsapp/queues/${id}`,{
+      const payload={
         name:q.name,
         queueType:'zapi',
         instanceId,
-        token,
-        clientToken,
         testConnection:true,
         isActive:true
-      });
-      toast('Conexão Z-API salva e verificada.');
+      };
+      if(token)payload.token=token;
+      if(clientToken)payload.clientToken=clientToken;
+      const saved=await whatsappApi('PATCH',`/api/whatsapp/queues/${id}`,payload);
+      toast(saved.health&&saved.health.connected?'Fila conectada e sincronizada.':'Credenciais salvas. O sistema vai manter a fila monitorada.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=saved.id;
     }catch(e){toast(e.message,'error')}
@@ -1710,7 +1714,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   window.testWhatsQueueStatus=async function(id){
     try{
       const r=await whatsappApi('POST',`/api/whatsapp/queues/${id}/test-status`,{});
-      toast(r.connected?'Instância conectada.':'Instância desconectada.');
+      toast(r.connected?'Instância conectada.':'Sincronização feita. A fila continuará em monitoramento.');
       await loadWhatsV68C();
     }catch(e){toast(e.message,'error')}
   }
@@ -1718,7 +1722,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   window.registerWhatsQueueWebhook=async function(id){
     try{
       const r=await whatsappApi('POST',`/api/whatsapp/queues/${id}/register-webhook`,{});
-      toast('Webhook registrado: '+r.webhookUrl);
+      toast(r.registered?'Webhook sincronizado: '+r.webhookUrl:'Webhook em monitoramento. O sistema tentará novamente.');
       await loadWhatsV68C();
     }catch(e){toast(e.message,'error')}
   }
@@ -1876,8 +1880,8 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
           <input id="zapi-phone-number" value="${esc(q.phone_number||'')}" readonly
             placeholder="Preenchido automaticamente ao testar a conexão"
             style="background:#f5f5f5;color:${q.phone_number?'#222':'#999'};font-family:monospace;cursor:default"
-            title="O número é obtido automaticamente da Z-API ao clicar em Testar status">
-          ${q.phone_number?'':'<small style="color:#888;font-size:11px">Clique em <strong>Testar status</strong> para obter o número automaticamente</small>'}
+            title="O número é obtido automaticamente da Z-API ao sincronizar">
+          ${q.phone_number?'':'<small style="color:#888;font-size:11px">Clique em <strong>Sincronizar agora</strong> para obter o número automaticamente</small>'}
         </div>
       </div>
       ${zapiCredentialCardV68C(q)}
@@ -1885,15 +1889,21 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   }
 
   function zapiCredentialCardV68C(q){
-    const webhook=(location.origin||'https://crmv68e-chat-visualuction-56bc.up.railway.app')+'/webhook';
-    const connected=String(q.server_status||q.api_status||'').toLowerCase().includes('conect')||String(q.server_status||'').toLowerCase().includes('autenticado');
+    const origin=location.hostname&&location.hostname.includes('railway.app')?`https://${location.host}`:(location.origin||'https://crmv61-production.up.railway.app');
+    const webhook=origin.replace(/\/$/,'')+'/webhook';
+    const statusText=String(q.server_status||q.api_status||'').toLowerCase();
+    const connected=statusText.includes('autenticado')||statusText==='connected'||statusText==='conectado';
+    const hasCreds=!!(q.api_instance_id||q.instance_id);
+    const monitoring=hasCreds&&!connected;
+    const statusTitle=connected?'Instância conectada/autenticada':(monitoring?'Credenciais salvas - monitorando reconexão':'Instância ainda não configurada');
+    const statusHint=connected?'celular online e webhook monitorado':(monitoring?'o sistema continuará testando e registrando o webhook':'preencha os dados uma vez para salvar');
     return `<div class="zapi-config-card" style="margin-top:18px">
       <div class="zapi-config-title">🔑 Credenciais da instância Z-API</div>
       <div class="zapi-status-card">
-        <div class="zapi-status-icon">${connected?'✓':'!'}</div>
+        <div class="zapi-status-icon">${connected?'✓':(monitoring?'↻':'!')}</div>
         <div>
-          <div style="font-weight:900;color:#f1fff7">${connected?'Instância conectada/autenticada':'Instância ainda não verificada'}</div>
-          <div style="font-family:monospace;font-size:12px;color:#90a6d9">${connected?'celular online ou webhook registrado':'preencha os dados e salve para verificar'}</div>
+          <div style="font-weight:900;color:#f1fff7">${statusTitle}</div>
+          <div style="font-family:monospace;font-size:12px;color:#90a6d9">${statusHint}</div>
         </div>
       </div>
       <div class="zapi-dark-field">
@@ -1903,21 +1913,21 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       </div>
       <div class="zapi-dark-field">
         <label>Token da instância</label>
-        <input id="zapi-token" type="password" placeholder="${q.instance_id?'Preencha para alterar o token':'Token da instância'}">
+        <input id="zapi-token" type="password" placeholder="${hasCreds?'Preencha somente para trocar o token':'Token da instância'}">
         <div class="zapi-help-line">// painel Z-API → Instâncias → Token da instância</div>
       </div>
       <div class="zapi-dark-field">
         <label>Client-Token (segurança da conta)</label>
-        <input id="zapi-client-token" type="password" placeholder="Client-Token, se ativo">
+        <input id="zapi-client-token" type="password" placeholder="${hasCreds?'Preencha somente para trocar o Client-Token':'Client-Token, se ativo'}">
         <div class="zapi-help-line">// painel Z-API → Segurança → Client-Token</div>
       </div>
       <div class="zapi-url-preview">https://api.z-api.io/instances/<span>${esc(q.instance_id||'{ID}')}</span>/token/<span>{TOKEN}</span>/send-text</div>
       <div class="zapi-config-title" style="margin-top:20px">📡 Webhook — receber mensagens</div>
       <div class="zapi-url-preview"><span>${esc(q.webhook_url||webhook)}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="whats-green-btn" onclick="saveWhatsZapiConfig(${q.id})">💾 Salvar e verificar</button>
-        <button class="whats-green-btn" onclick="testWhatsQueueStatus(${q.id})">🔎 Testar status</button>
-        <button class="whats-green-btn" onclick="registerWhatsQueueWebhook(${q.id})">📌 Registrar na Z-API</button>
+        <button class="whats-green-btn" onclick="saveWhatsZapiConfig(${q.id})">💾 Salvar credenciais</button>
+        <button class="whats-green-btn" onclick="testWhatsQueueStatus(${q.id})">🔎 Sincronizar agora</button>
+        <button class="whats-green-btn" onclick="registerWhatsQueueWebhook(${q.id})">📌 Forçar webhook</button>
       </div>
     </div>`;
   }
