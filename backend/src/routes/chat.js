@@ -118,6 +118,37 @@ async function findConversationByPhone(phone) {
   return rows[0] || null;
 }
 
+async function getQueueForNewConversation(queueId, user) {
+  if (!queueId) return null;
+  const params = [queueId];
+  let accessSql = '';
+
+  if (!['admin', 'gerencia', 'bko'].includes(user.role)) {
+    params.push(user.id);
+    accessSql = `AND q.id IN (
+      SELECT queue_id FROM queue_users WHERE user_id=$2 AND is_active=true
+    )`;
+  }
+
+  const { rows } = await pool.query(`
+    SELECT
+      q.id,
+      q.name,
+      q.api_instance_id,
+      q.is_active,
+      ai.status AS api_status,
+      ai.is_active AS api_is_active
+    FROM attendance_queues q
+    LEFT JOIN api_instances ai ON ai.id = q.api_instance_id
+    WHERE q.id=$1
+      AND q.is_active=true
+      ${accessSql}
+    LIMIT 1
+  `, params);
+
+  return rows[0] || null;
+}
+
 // ── CONFIG LEGADA Z-API ───────────────────────────────────────────────────
 router.get('/config', requireRole(['admin', 'gerencia']), async (req, res) => {
   try {
@@ -206,7 +237,7 @@ router.get('/conversations', async (req, res) => {
       params.push(`%${search}%`); p++;
     }
 
-    query += ' ORDER BY c.last_message_at DESC NULLS LAST LIMIT 200';
+    query += ' ORDER BY c.last_message_at DESC NULLS LAST, c.updated_at DESC NULLS LAST, c.id DESC LIMIT 200';
     const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Erro ao buscar conversas: ' + err.message }); }
@@ -214,8 +245,15 @@ router.get('/conversations', async (req, res) => {
 
 router.post('/conversations', async (req, res) => {
   try {
-    const { phone, clientName } = req.body;
+    const { phone, clientName, queueId } = req.body;
     if (!phone) return res.status(400).json({ error: 'Número é obrigatório.' });
+    if (!queueId) return res.status(400).json({ error: 'Selecione a fila de atendimento.' });
+
+    const queue = await getQueueForNewConversation(Number(queueId), req.user);
+    if (!queue) return res.status(404).json({ error: 'Fila não encontrada, inativa ou sem acesso para este usuário.' });
+    if (!queue.api_instance_id) return res.status(400).json({ error: 'Esta fila não possui instância Z-API vinculada.' });
+    if (queue.api_is_active === false) return res.status(400).json({ error: 'A instância Z-API desta fila está desativada.' });
+
     const normalized = canonicalPhone(phone);
     const targetPhone = zapiPhone(phone);
     let conv = await findConversationByPhone(phone);
@@ -230,18 +268,24 @@ router.post('/conversations', async (req, res) => {
                 phone=$2,
                 phone_normalized=$3,
                 client_name=COALESCE(NULLIF(client_name,''),$4),
+                queue_id=$5,
+                api_instance_id=$6,
+                status=CASE WHEN status IN ('closed','lost','converted','transferred') THEN 'open' ELSE COALESCE(status,'open') END,
+                last_message_at=COALESCE(last_message_at,NOW()),
                 updated_at=NOW()
-          WHERE id=$5
+          WHERE id=$7
           RETURNING *`,
-        [req.user.id, targetPhone, normalized, clientName || normalized, conv.id]
+        [req.user.id, targetPhone, normalized, clientName || normalized, queue.id, queue.api_instance_id, conv.id]
       );
       return res.json(rows[0]);
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO conversations (phone, phone_normalized, client_name, status, assigned_user_id, last_message_at, created_at, updated_at)
-       VALUES ($1,$2,$3,'open',$4,NOW(),NOW(),NOW()) RETURNING *`,
-      [targetPhone, normalized, clientName || normalized, req.user.id]
+      `INSERT INTO conversations
+        (phone, phone_normalized, client_name, status, assigned_user_id,
+         queue_id, api_instance_id, last_message_at, created_at, updated_at)
+       VALUES ($1,$2,$3,'open',$4,$5,$6,NOW(),NOW(),NOW()) RETURNING *`,
+      [targetPhone, normalized, clientName || normalized, req.user.id, queue.id, queue.api_instance_id]
     );
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: 'Erro ao criar conversa: ' + err.message }); }
