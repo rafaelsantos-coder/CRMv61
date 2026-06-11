@@ -1,5 +1,5 @@
 /**
- * Sulnet V1 - Backend de Producao
+ * Sulnet V1 — Backend de Produção
  */
 
 require('dotenv').config();
@@ -37,14 +37,14 @@ const PORT = process.env.PORT || 3000;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : true, credentials: true }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisicoes. Tente novamente em 15 minutos.' } }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisições. Tente novamente em 15 minutos.' } }));
 app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' } }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 function requireQueueAdmin(req, res) {
   if (!req.user || !['admin', 'gerencia'].includes(req.user.role)) {
-    res.status(403).json({ error: 'Acesso restrito a administradores/gerencia.' });
+    res.status(403).json({ error: 'Acesso restrito a administradores/gerência.' });
     return false;
   }
   return true;
@@ -306,7 +306,7 @@ app.patch('/api/whatsapp/queues/:id/active', authMiddleware, async (req, res) =>
     if (!requireQueueAdmin(req, res)) return;
     const nextActive = req.body?.isActive === true || req.body?.isActive === 'true';
     const { rows } = await pool.query('UPDATE attendance_queues SET is_active=$1, updated_at=NOW() WHERE id=$2 RETURNING id, is_active, api_instance_id', [nextActive, req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Fila nao encontrada.' });
+    if (!rows.length) return res.status(404).json({ error: 'Fila não encontrada.' });
     const apiInstanceId = rows[0].api_instance_id;
     if (apiInstanceId && nextActive) {
       await pool.query(`
@@ -337,7 +337,7 @@ app.delete('/api/whatsapp/queues/:id/hard', authMiddleware, async (req, res) => 
     await client.query('BEGIN');
     await client.query('UPDATE conversations SET queue_id=NULL, updated_at=NOW() WHERE queue_id=$1', [req.params.id]).catch(() => {});
     const { rows } = await client.query('DELETE FROM attendance_queues WHERE id=$1 RETURNING id, api_instance_id', [req.params.id]);
-    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila nao encontrada.' }); }
+    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila não encontrada.' }); }
     const apiInstanceId = rows[0].api_instance_id;
     if (apiInstanceId) {
       await client.query(`
@@ -388,7 +388,7 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
 .c68-av{width:44px!important;height:44px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
 .c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:4px!important}.c68-itime{color:#94a3b8!important}
 .c68-ibadge{background:#ff4f1f!important;color:white!important}.c68-istatus.open,.c68-istatus.in_attendance{background:#22c55e!important}
-#c68-mid{background:#0b1018!important;position:relative!important;flex:0 0 50%!important;max-width:50%!important;min-width:0!important}
+#c68-mid{background:#0b1018!important;position:relative!important;flex:0 0 620px!important;max-width:620px!important;min-width:620px!important}
 #c68-empty{background:radial-gradient(circle at center,rgba(34,197,94,.08),transparent 36%),#0b1018!important;color:#94a3b8!important}
 #c68-empty span{font-size:58px!important;opacity:.22!important}#c68-empty p{color:#dbeafe!important;font-size:15px!important;font-weight:700!important}
 #c68-head{height:64px!important;padding:0 18px!important;background:#111722!important;border-bottom:1px solid #253044!important}
@@ -458,10 +458,10 @@ async function start() {
   try { await runMigrations(); }
   catch (err) { console.error(`Falha ao preparar banco: ${err.message}`); console.error('O servidor vai iniciar, mas rotas que dependem do schema podem falhar.'); }
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
-    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'configurado' : 'NAO configurado'}`);
-    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? 'configurado' : 'usando padrao (configure nas variaveis)'}`);
-    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? 'configurado' : 'NAO configurado (uploads desativados)'}`);
+    console.log(`✅ Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
+    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
+    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
   });
 }
 
