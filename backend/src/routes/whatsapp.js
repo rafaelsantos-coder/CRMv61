@@ -406,16 +406,19 @@ router.post('/queues', async (req, res) => {
     let apiStatus = 'pending';
 
     if (d.instanceId && d.token) {
-      const creds = {
+      const creds = zapi.sanitizeCreds({
         instance_id: d.instanceId,
         token: d.token,
         client_token: d.clientToken || '',
-      };
+        api_url: d.apiUrl || '',
+      });
 
-      if (d.testConnection) {
-        const status = await safeCheckStatus(creds);
-        apiStatus = status.connected ? 'connected' : (status.ok ? 'disconnected' : 'error');
+      const status = await safeCheckStatus(creds);
+      if (!status.ok && /instance not found/i.test(status.error || '')) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `A Z-API não reconheceu esta instância (Instance not found). Confira o ID da instância e o token no painel da Z-API antes de salvar. Instância informada: ${zapi.maskCred(creds.instance_id)}` });
       }
+      apiStatus = status.connected ? 'connected' : (status.ok ? 'disconnected' : 'error');
 
       const { rows: aiRows } = await client.query(`
         INSERT INTO api_instances
@@ -434,12 +437,12 @@ router.post('/queues', async (req, res) => {
         RETURNING id
       `, [
         d.name,
-        d.instanceId,
-        d.token,
-        d.clientToken || '',
+        creds.instance_id,
+        creds.token,
+        creds.client_token,
         d.phoneNumber || '',
         apiStatus,
-        d.apiUrl || `https://api.z-api.io/instances/${d.instanceId}/token/${d.token}/send-text`,
+        `https://api.z-api.io/instances/${creds.instance_id}/token/${creds.token}/send-text`,
       ]);
       apiInstanceId = aiRows[0].id;
     }
@@ -504,28 +507,27 @@ router.patch('/queues/:id', async (req, res) => {
       d.testConnection;
 
     if (wantsCredUpdate) {
-      const instanceId = String(d.instanceId || existingApi?.instance_id || '').trim();
-      const token = String(d.token || existingApi?.token || '').trim();
       const incomingClientToken = Object.prototype.hasOwnProperty.call(d, 'clientToken')
         ? String(d.clientToken || '').trim()
         : null;
-      const clientToken = incomingClientToken || existingApi?.client_token || '';
+      const creds = zapi.sanitizeCreds({
+        instance_id: d.instanceId || existingApi?.instance_id || '',
+        token: d.token || existingApi?.token || '',
+        client_token: incomingClientToken || existingApi?.client_token || '',
+        api_url: d.apiUrl || '',
+      });
 
-      if (!instanceId || !token) {
+      if (!creds.instance_id || !creds.token) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Informe ID da instancia e token na primeira integracao.' });
       }
 
-      const creds = {
-        instance_id: instanceId,
-        token,
-        client_token: clientToken,
-      };
-
-      if (d.testConnection) {
-        const status = await safeCheckStatus(creds);
-        apiStatus = status.connected ? 'connected' : (status.ok ? 'disconnected' : 'error');
+      const status = await safeCheckStatus(creds);
+      if (!status.ok && /instance not found/i.test(status.error || '')) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `A Z-API não reconheceu esta instância (Instance not found). Confira o ID da instância e o token no painel da Z-API antes de salvar. Instância informada: ${zapi.maskCred(creds.instance_id)}` });
       }
+      apiStatus = status.connected ? 'connected' : (status.ok ? 'disconnected' : 'error');
 
       const { rows: aiRows } = await client.query(`
         INSERT INTO api_instances
@@ -544,12 +546,12 @@ router.patch('/queues/:id', async (req, res) => {
         RETURNING id
       `, [
         d.name || current.name,
-        instanceId,
-        token,
-        clientToken,
+        creds.instance_id,
+        creds.token,
+        creds.client_token,
         d.phoneNumber || current.phone_number || '',
         apiStatus,
-        d.apiUrl || `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`,
+        `https://api.z-api.io/instances/${creds.instance_id}/token/${creds.token}/send-text`,
       ]);
       apiInstanceId = aiRows[0].id;
     }

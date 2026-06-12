@@ -10,6 +10,49 @@ function preferValue(primary, fallback = '') {
   return primary === undefined || primary === null || primary === '' ? fallback : primary;
 }
 
+const ZAPI_URL_RE = /instances\/([A-Za-z0-9_-]+)\/token\/([A-Za-z0-9_-]+)/i;
+
+function cleanCredValue(value) {
+  return String(value || '').replace(/["'\s]+/g, '');
+}
+
+/**
+ * Normaliza credenciais antes de qualquer chamada a Z-API:
+ * remove espacos/aspas e, se o usuario colou a URL completa da API
+ * em algum campo, extrai instance_id e token dela.
+ */
+function sanitizeCreds(creds) {
+  if (!creds) return creds;
+  let instanceId = cleanCredValue(creds.instance_id);
+  let token = cleanCredValue(creds.token);
+  const fromField =
+    ZAPI_URL_RE.exec(String(creds.instance_id || '')) ||
+    ZAPI_URL_RE.exec(String(creds.token || ''));
+  if (fromField) {
+    instanceId = fromField[1];
+    token = fromField[2];
+  } else if (!instanceId || !token) {
+    const fromApiUrl = ZAPI_URL_RE.exec(String(creds.api_url || ''));
+    if (fromApiUrl) {
+      instanceId = instanceId || fromApiUrl[1];
+      token = token || fromApiUrl[2];
+    }
+  }
+  return {
+    ...creds,
+    instance_id: instanceId,
+    token,
+    client_token: cleanCredValue(creds.client_token),
+  };
+}
+
+function maskCred(value, keepStart = 4, keepEnd = 2) {
+  const v = String(value || '');
+  if (!v) return '(vazio)';
+  if (v.length <= keepStart + keepEnd) return v.slice(0, 2) + '••••';
+  return v.slice(0, keepStart) + '••••' + v.slice(-keepEnd);
+}
+
 async function getLegacyCreds() {
   const { rows } = await pool.query('SELECT * FROM zapi_config ORDER BY id DESC LIMIT 1');
   return rows[0] || null;
@@ -17,7 +60,7 @@ async function getLegacyCreds() {
 
 function mergeCreds(instanceRow, legacyRow) {
   if (!instanceRow && !legacyRow) return null;
-  return {
+  return sanitizeCreds({
     id: instanceRow?.id || null,
     name: preferValue(instanceRow?.name, legacyRow?.name || 'Z-API'),
     provider: preferValue(instanceRow?.provider, 'Z-API'),
@@ -25,7 +68,8 @@ function mergeCreds(instanceRow, legacyRow) {
     token: preferValue(instanceRow?.token, legacyRow?.token || ''),
     client_token: preferValue(instanceRow?.client_token, legacyRow?.client_token || ''),
     webhook_url: preferValue(instanceRow?.webhook_url, legacyRow?.webhook_url || ''),
-  };
+    api_url: instanceRow?.api_url || '',
+  });
 }
 
 async function getCreds(apiInstanceId = null) {
@@ -133,9 +177,13 @@ async function zapiJson(res) {
 }
 
 async function zapiRequest(creds, endpoint, options = {}) {
-  const res = await fetch(`${zapiBase(creds)}${endpoint}`, {
+  const clean = sanitizeCreds(creds);
+  if (!clean?.instance_id || !clean?.token) {
+    throw new Error('Credenciais Z-API incompletas (ID da instância e token são obrigatórios).');
+  }
+  const res = await fetch(`${zapiBase(clean)}${endpoint}`, {
     ...options,
-    headers: zapiHeaders(creds, options.headers || {}),
+    headers: zapiHeaders(clean, options.headers || {}),
   });
   const data = await zapiJson(res);
   if (!res.ok) {
@@ -361,6 +409,8 @@ async function registerEveryWebhook(creds, webhookUrl) {
 module.exports = {
   getCreds,
   listCredsCandidates,
+  sanitizeCreds,
+  maskCred,
   zapiBase,
   zapiHeaders,
   checkStatus,

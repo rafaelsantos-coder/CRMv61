@@ -219,18 +219,18 @@ router.post('/config', requireRole(['admin', 'gerencia']), async (req, res) => {
   try {
     const { instanceId, token, clientToken = '' } = req.body;
     if (!instanceId || !token) return res.status(400).json({ error: 'ID da instÃ¢ncia e token sÃ£o obrigatÃ³rios.' });
-    const creds = { instance_id: instanceId, token, client_token: clientToken };
+    const creds = zapi.sanitizeCreds({ instance_id: instanceId, token, client_token: clientToken });
     const status = await zapi.checkStatus(creds);
     await pool.query(
       `INSERT INTO zapi_config (instance_id, token, client_token, updated_at) VALUES ($1,$2,$3,NOW())
        ON CONFLICT (id) DO UPDATE SET instance_id=$1, token=$2, client_token=$3, updated_at=NOW()`,
-      [instanceId, token, clientToken]
+      [creds.instance_id, creds.token, creds.client_token]
     );
     await pool.query(
       `INSERT INTO api_instances (name, provider, instance_id, token, client_token, status, is_active, updated_at)
        VALUES ('Bot Z-API PadrÃ£o','Z-API',$1,$2,$3,$4,true,NOW())
        ON CONFLICT (provider, instance_id) DO UPDATE SET token=$2, client_token=$3, status=$4, is_active=true, updated_at=NOW()`,
-      [instanceId, token, clientToken, status.connected || status.smartphoneConnected ? 'connected' : 'disconnected']
+      [creds.instance_id, creds.token, creds.client_token, status.connected || status.smartphoneConnected ? 'connected' : 'disconnected']
     );
     res.json({ ok: true, connected: status.connected, smartphoneConnected: status.smartphoneConnected });
   } catch (err) { res.status(400).json({ error: 'Erro ao salvar configuraÃ§Ã£o: ' + err.message }); }
@@ -539,17 +539,28 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
     let zapiResult = null;
     let activeCreds = null;
-    let lastSendErr = null;
+    const attemptErrors = [];
     for (const creds of candidates) {
       try {
         zapiResult = await sendWithCreds(creds);
         activeCreds = creds;
         break;
       } catch (sendErr) {
-        lastSendErr = sendErr;
+        attemptErrors.push({ instanceId: creds.instance_id, message: sendErr.message });
+        if (/obrigat|suportado/i.test(sendErr.message)) throw sendErr;
       }
     }
-    if (!zapiResult) throw lastSendErr || new Error('Falha ao enviar mensagem.');
+    if (!zapiResult) {
+      const detail = attemptErrors
+        .map(a => `${zapi.maskCred(a.instanceId)} → ${a.message}`)
+        .join(' | ');
+      const allInstanceNotFound = attemptErrors.length > 0 &&
+        attemptErrors.every(a => /instance not found/i.test(a.message));
+      const hint = allInstanceNotFound
+        ? 'Nenhuma instância Z-API cadastrada existe mais no painel da Z-API. Abra Administração > Atendimento > Filas, edite a fila desta conversa e salve o ID da instância e o token atuais (copie do painel da Z-API). '
+        : '';
+      throw new Error(`${hint}Falha em todas as instâncias: ${detail || 'nenhuma credencial disponível'}`);
+    }
 
     const zapiMessageId = zapiResult?.messageId || zapiResult?.zaapId || null;
     const { rows: msgRows } = await pool.query(
