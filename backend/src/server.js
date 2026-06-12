@@ -261,6 +261,17 @@ async function ensureChatSchema(req, res, next) {
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()
     `);
 
+    await pool.query(`CREATE TABLE IF NOT EXISTS chat_agent_logins (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL,
+      queue_id INT NOT NULL,
+      is_logged_in BOOLEAN DEFAULT false,
+      logged_in_at TIMESTAMPTZ,
+      logged_out_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, queue_id)
+    )`);
+
     await pool.query('CREATE INDEX IF NOT EXISTS idx_conv_phone ON conversations(phone)').catch(() => {});
     await pool.query('CREATE INDEX IF NOT EXISTS idx_conv_last_msg ON conversations(last_message_at DESC)').catch(() => {});
     await pool.query('CREATE INDEX IF NOT EXISTS idx_msgs_conv_sent ON chat_messages(conversation_id, sent_at DESC, id DESC)').catch(() => {});

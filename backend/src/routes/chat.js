@@ -378,9 +378,25 @@ router.post('/conversations/:id/transfer', async (req, res) => {
     const { toUserId, toQueueId, reason } = req.body;
     const convId = req.params.id;
     const { rows: convRows } = await client.query('SELECT * FROM conversations WHERE id=$1', [convId]);
-    if (!convRows.length) return res.status(404).json({ error: 'Conversa nÃ£o encontrada.' });
+    if (!convRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Conversa nÃ£o encontrada.' }); }
     const conv = convRows[0];
-    if (!isOwner(req.user, conv)) return res.status(403).json({ error: 'Esta conversa pertence a outro atendente.' });
+    if (!isOwner(req.user, conv)) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Esta conversa pertence a outro atendente.' }); }
+
+    if (toUserId) {
+      const targetQueueId = toQueueId || conv.queue_id || null;
+      const params = [toUserId];
+      let queueFilter = '';
+      if (targetQueueId) { params.push(targetQueueId); queueFilter = ' AND queue_id=$2'; }
+      const { rows: logged } = await client.query(
+        `SELECT 1 FROM chat_agent_logins
+          WHERE user_id=$1 AND is_logged_in=true${queueFilter} LIMIT 1`,
+        params
+      );
+      if (!logged.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Este atendente nao esta logado no chat desta fila. A transferencia so e permitida para atendentes logados (botao Entrar na tela do chat).' });
+      }
+    }
 
     await client.query(
       `INSERT INTO chat_transfers
@@ -595,6 +611,86 @@ router.post('/conversations/:id/messages', async (req, res) => {
     console.error('[CHAT] Erro ao enviar:', err.message);
     res.status(500).json({ error: 'Erro ao enviar mensagem: ' + err.message });
   }
+});
+
+// ── LOGIN DO ATENDENTE NO CHAT ───────────────────────────────────────────────
+async function userHasQueueAccess(user, queueId) {
+  if (['admin', 'gerencia', 'bko'].includes(user.role)) return true;
+  const { rows } = await pool.query(
+    'SELECT 1 FROM queue_users WHERE queue_id=$1 AND user_id=$2 AND is_active=true LIMIT 1',
+    [queueId, user.id]
+  );
+  return rows.length > 0;
+}
+
+router.get('/agent-status', async (req, res) => {
+  try {
+    const params = [req.user.id];
+    let query = `
+      SELECT q.id, q.name,
+             COALESCE(al.is_logged_in, false) AS is_logged_in,
+             al.logged_in_at
+      FROM attendance_queues q
+      LEFT JOIN chat_agent_logins al ON al.queue_id = q.id AND al.user_id = $1
+      WHERE q.is_active = true`;
+    if (!['admin', 'gerencia', 'bko'].includes(req.user.role)) {
+      query += ` AND q.id IN (SELECT queue_id FROM queue_users WHERE user_id=$1 AND is_active=true)`;
+    }
+    query += ' ORDER BY q.name';
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar status do atendente: ' + err.message }); }
+});
+
+router.post('/agent-login', async (req, res) => {
+  try {
+    const queueId = Number(req.body?.queueId);
+    if (!queueId) return res.status(400).json({ error: 'Informe a fila.' });
+    if (!await userHasQueueAccess(req.user, queueId)) {
+      return res.status(403).json({ error: 'Voce nao tem acesso a esta fila.' });
+    }
+    await pool.query(
+      `INSERT INTO chat_agent_logins (user_id, queue_id, is_logged_in, logged_in_at, updated_at)
+       VALUES ($1,$2,true,NOW(),NOW())
+       ON CONFLICT (user_id, queue_id)
+       DO UPDATE SET is_logged_in=true, logged_in_at=NOW(), updated_at=NOW()`,
+      [req.user.id, queueId]
+    );
+    res.json({ ok: true, queueId, loggedIn: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao entrar na fila: ' + err.message }); }
+});
+
+router.post('/agent-logout', async (req, res) => {
+  try {
+    const queueId = Number(req.body?.queueId);
+    if (!queueId) return res.status(400).json({ error: 'Informe a fila.' });
+    await pool.query(
+      `UPDATE chat_agent_logins
+          SET is_logged_in=false, logged_out_at=NOW(), updated_at=NOW()
+        WHERE user_id=$1 AND queue_id=$2`,
+      [req.user.id, queueId]
+    );
+    res.json({ ok: true, queueId, loggedIn: false });
+  } catch (err) { res.status(500).json({ error: 'Erro ao sair da fila: ' + err.message }); }
+});
+
+// Atendentes logados (para o modal de transferencia). queueId opcional.
+router.get('/logged-users', async (req, res) => {
+  try {
+    const queueId = req.query.queueId ? Number(req.query.queueId) : null;
+    const params = [];
+    let where = 'al.is_logged_in = true AND u.active = true';
+    if (queueId) { params.push(queueId); where += ` AND al.queue_id = $1`; }
+    const { rows } = await pool.query(
+      `SELECT DISTINCT u.id, u.name, u.role
+         FROM chat_agent_logins al
+         JOIN users u ON u.id = al.user_id
+        WHERE ${where}
+        ORDER BY u.name`,
+      params
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar atendentes logados: ' + err.message }); }
 });
 
 router.get('/unread', async (req, res) => {
