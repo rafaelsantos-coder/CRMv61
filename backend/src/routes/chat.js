@@ -154,6 +154,9 @@ async function getSendCredentialCandidates(conv) {
   if (conv.api_instance_id && Number(conv.api_instance_id) !== Number(queueApiInstanceId || 0)) {
     pushCreds(await zapi.getCreds(conv.api_instance_id).catch(() => null));
   }
+  for (const creds of await zapi.listCredsCandidates().catch(() => [])) {
+    pushCreds(creds);
+  }
   pushCreds(await zapi.getCreds().catch(() => null));
 
   return { candidates, queueApiInstanceId };
