@@ -81,7 +81,9 @@ async function assignUserForQueue(queueId) {
   let candidates = users;
   try {
     const { rows: logged } = await pool.query(
-      'SELECT user_id FROM chat_agent_logins WHERE queue_id = $1 AND is_logged_in = true',
+      `SELECT user_id FROM chat_agent_logins
+        WHERE queue_id = $1 AND is_logged_in = true
+          AND last_seen_at > NOW() - INTERVAL '2 minutes'`,
       [queueId]
     );
     const loggedIds = new Set(logged.map(r => Number(r.user_id)));

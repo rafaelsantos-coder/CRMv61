@@ -383,6 +383,7 @@ router.post('/conversations/:id/transfer', async (req, res) => {
     if (!isOwner(req.user, conv)) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Esta conversa pertence a outro atendente.' }); }
 
     if (toUserId) {
+      await expireStaleAgentLogins();
       const targetQueueId = toQueueId || conv.queue_id || null;
       const params = [toUserId];
       let queueFilter = '';
@@ -617,6 +618,20 @@ router.post('/conversations/:id/messages', async (req, res) => {
 });
 
 // ── LOGIN DO ATENDENTE NO CHAT ───────────────────────────────────────────────
+// O login vale apenas enquanto a sessao do sistema esta aberta: o navegador
+// renova last_seen_at via heartbeat; sem renovacao por AGENT_OFFLINE_MINUTES,
+// o login expira e o atendente precisa clicar em Entrar novamente.
+const AGENT_OFFLINE_MINUTES = 2;
+
+async function expireStaleAgentLogins() {
+  await pool.query(
+    `UPDATE chat_agent_logins
+        SET is_logged_in = false, logged_out_at = NOW(), updated_at = NOW()
+      WHERE is_logged_in = true
+        AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '${AGENT_OFFLINE_MINUTES} minutes')`
+  ).catch(() => {});
+}
+
 async function userHasQueueAccess(user, queueId) {
   if (['admin', 'gerencia', 'bko'].includes(user.role)) return true;
   const { rows } = await pool.query(
@@ -628,6 +643,7 @@ async function userHasQueueAccess(user, queueId) {
 
 router.get('/agent-status', async (req, res) => {
   try {
+    await expireStaleAgentLogins();
     const params = [req.user.id];
     let query = `
       SELECT q.id, q.name,
@@ -653,14 +669,40 @@ router.post('/agent-login', async (req, res) => {
       return res.status(403).json({ error: 'Voce nao tem acesso a esta fila.' });
     }
     await pool.query(
-      `INSERT INTO chat_agent_logins (user_id, queue_id, is_logged_in, logged_in_at, updated_at)
-       VALUES ($1,$2,true,NOW(),NOW())
+      `INSERT INTO chat_agent_logins (user_id, queue_id, is_logged_in, logged_in_at, last_seen_at, updated_at)
+       VALUES ($1,$2,true,NOW(),NOW(),NOW())
        ON CONFLICT (user_id, queue_id)
-       DO UPDATE SET is_logged_in=true, logged_in_at=NOW(), updated_at=NOW()`,
+       DO UPDATE SET is_logged_in=true, logged_in_at=NOW(), last_seen_at=NOW(), updated_at=NOW()`,
       [req.user.id, queueId]
     );
     res.json({ ok: true, queueId, loggedIn: true });
   } catch (err) { res.status(500).json({ error: 'Erro ao entrar na fila: ' + err.message }); }
+});
+
+// Renova a presenca do atendente enquanto o sistema esta aberto no navegador.
+router.post('/agent-heartbeat', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE chat_agent_logins
+          SET last_seen_at=NOW(), updated_at=NOW()
+        WHERE user_id=$1 AND is_logged_in=true`,
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Erro no heartbeat: ' + err.message }); }
+});
+
+// Desloga o atendente de todas as filas (usado no logout do sistema).
+router.post('/agent-logout-all', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE chat_agent_logins
+          SET is_logged_in=false, logged_out_at=NOW(), updated_at=NOW()
+        WHERE user_id=$1 AND is_logged_in=true`,
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao deslogar do chat: ' + err.message }); }
 });
 
 router.post('/agent-logout', async (req, res) => {
@@ -680,6 +722,7 @@ router.post('/agent-logout', async (req, res) => {
 // Atendentes logados (para o modal de transferencia). queueId opcional.
 router.get('/logged-users', async (req, res) => {
   try {
+    await expireStaleAgentLogins();
     const queueId = req.query.queueId ? Number(req.query.queueId) : null;
     const params = [];
     let where = 'al.is_logged_in = true AND u.active = true';
@@ -694,6 +737,27 @@ router.get('/logged-users', async (req, res) => {
     );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Erro ao buscar atendentes logados: ' + err.message }); }
+});
+
+// Leads criadas automaticamente pelo webhook do chat, para o CRM (base local
+// do navegador) importar e exibir no kanban do vendedor.
+router.get('/crm-leads', async (req, res) => {
+  try {
+    const sinceId = Number(req.query.sinceId || 0);
+    const { rows } = await pool.query(
+      `SELECT o.id, o.client_name, o.client_phone, o.assigned_user_id, o.created_at,
+              og.name AS origin_name
+         FROM opportunities o
+         LEFT JOIN origins og ON og.id = o.origin_id
+        WHERE o.id > $1
+          AND (o.notes LIKE 'Lead criada automaticamente via WhatsApp%'
+            OR o.notes LIKE 'Oportunidade criada automaticamente via WhatsApp%')
+        ORDER BY o.id ASC
+        LIMIT 100`,
+      [sinceId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Erro ao buscar leads do chat: ' + err.message }); }
 });
 
 router.get('/unread', async (req, res) => {
