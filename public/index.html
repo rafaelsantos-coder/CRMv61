@@ -1561,6 +1561,63 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
 
 
+  // ── Ponte Chat → CRM: importa leads criadas pelo WhatsApp para o kanban ────
+  async function importChatLeads(){
+    const user=getUser();
+    if(!user) return;
+    let st=getState();
+    const since=Number(st.counters.chatLead||0);
+    let leads=null;
+    try{
+      const r=await fetch('/api/chat/crm-leads?sinceId='+since,{headers:buildAuthHeaders()});
+      leads=r.ok?await r.json():null;
+    }catch(e){return}
+    if(!Array.isArray(leads)||!leads.length) return;
+    st=getState();
+    st.counters.chatLead=Number(st.counters.chatLead||0);
+    let added=0;
+    for(const L of leads){
+      st.counters.chatLead=Math.max(st.counters.chatLead,Number(L.id)||0);
+      const ph=digits(L.client_phone||'').slice(-8);
+      if(!ph) continue;
+      if(st.opportunities.some(o=>digits(o.clientPhone||'').slice(-8)===ph)) continue;
+      const owner=st.users.find(u=>Number(u.id)===Number(L.assigned_user_id))||null;
+      const accessIds=(owner?.funnelAccessIds||[]).map(Number);
+      const funnels=st.funnels.filter(f=>f.active!==false).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+      const funnel=funnels.find(f=>accessIds.includes(Number(f.id)))||funnels[0];
+      if(!funnel) continue;
+      const stage=st.stages.filter(s=>Number(s.funnelId)===Number(funnel.id)).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0))[0];
+      if(!stage) continue;
+      let origin=null;
+      if(L.origin_name){
+        origin=st.origins.find(o=>normName(o.name)===normName(L.origin_name));
+        if(!origin){st.counters.origin++;origin={id:st.counters.origin,name:L.origin_name,active:true};st.origins.push(origin);}
+      }
+      st.counters.opp++;
+      st.opportunities.push({
+        id:st.counters.opp,
+        protocol:'CRM-'+new Date().getFullYear()+'-'+String(st.counters.opp).padStart(4,'0'),
+        funnelId:Number(funnel.id),stageId:Number(stage.id),
+        assignedUserId:owner?Number(owner.id):(Number(L.assigned_user_id)||user.id),
+        originId:origin?Number(origin.id):null,
+        clientName:L.client_name||L.client_phone,
+        clientPhone:L.client_phone||'',
+        status:'open',createdAt:L.created_at||now(),updatedAt:now(),
+        planIds:[],tagIds:[],productInfo:{},prospectNotes:[],
+        history:[{at:now(),actor:'Chat WhatsApp',action:'Lead criada automaticamente pela fila '+(L.origin_name||'WhatsApp')+'.'}]
+      });
+      added++;
+    }
+    setState(st);
+    if(added){
+      toast(added===1?'Nova lead recebida do Chat WhatsApp.':added+' novas leads recebidas do Chat WhatsApp.');
+      const tag=(document.activeElement?.tagName||'').toUpperCase();
+      if(!['INPUT','TEXTAREA','SELECT'].includes(tag)){try{render()}catch(e){}}
+    }
+  }
+  setInterval(importChatLeads,20000);
+  setTimeout(importChatLeads,2500);
+
   function attendanceAdminApi(method,path,body){
     return fetch(path,{method,headers:buildAuthHeaders(),body:body?JSON.stringify(body):undefined})
       .then(async r=>{const data=await r.json().catch(()=>null);if(!r.ok)throw new Error(data?.error||'Erro na requisição');return data})
@@ -3115,7 +3172,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       if(tab==='produtos')updateOpportunityProductFields(form);
       return;
     }
-    if(action==='logout'){sessionStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_KEY);render();return}
+    if(action==='logout'){try{fetch('/api/chat/agent-logout-all',{method:'POST',headers:buildAuthHeaders(),keepalive:true}).catch(()=>{});}catch(e){}sessionStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_KEY);render();return}
     if(action==='resetData'){if(confirm('Restaurar dados de demonstração e apagar alterações locais?'))resetData();return}
     if(action==='newOpp'){try{const st=getState();const u=getUser();let stageId=Number(act.dataset.stage||0);let funnelId=st.stages.find(s=>Number(s.id)===stageId)?.funnelId||ui.funnelId;const first=getFirstStage(st,funnelId);oppModal({},first?.id||stageId);}catch(err){console.error(err);toast('Não foi possível abrir a nova oportunidade: '+(err?.message||err),'error')}return}
     if(action==='openOpp'){try{const st=getState();const card=act.closest('[data-opp-id]');const opp=st.opportunities.find(o=>o.id===Number(card?.dataset.oppId));if(opp)oppModal(opp);else toast('Oportunidade não encontrada para edição.','error');}catch(err){console.error(err);toast('Não foi possível editar a oportunidade: '+(err?.message||err),'error')}return}
@@ -4431,6 +4488,16 @@ async function _c68pollMsgs(id,user){
   if(newRecv.length) beep();
   await _c68loadList(user);
 }
+
+// ── Heartbeat de presença do atendente ───────────────────────────────────────
+// Renova o login do chat enquanto o sistema está aberto no navegador.
+// Sem renovação (sistema fechado/deslogado), o backend expira o login.
+setInterval(()=>{
+  const hasSession=sessionStorage.getItem('sulnet_jwt')||localStorage.getItem('sulnet_jwt')
+    ||sessionStorage.getItem('sulnet_integrado_session')||localStorage.getItem('sulnet_integrado_session');
+  if(!hasSession) return;
+  api('POST','/api/chat/agent-heartbeat',{});
+},45000);
 
 // ── Polling unread (badge menu) + lista de conversas em tempo real ───────────
 function _c68startPollUnread(user){

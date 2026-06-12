@@ -262,6 +262,7 @@ async function resolveAssignmentForIncoming(conversation, queue, suggestedUserId
        EXISTS (
          SELECT 1 FROM chat_agent_logins al
           WHERE al.queue_id=$1 AND al.user_id=$2 AND al.is_logged_in=true
+            AND al.last_seen_at > NOW() - INTERVAL '2 minutes'
        ) AS logged_in`,
     [queue.id, currentUserId]
   ).catch(() => ({ rows: [{ in_queue: true, logged_in: true }] }));
@@ -275,7 +276,8 @@ async function resolveAssignmentForIncoming(conversation, queue, suggestedUserId
   if (nextUserId && nextUserId !== currentUserId) {
     const { rows: nextRows } = await pool.query(
       `SELECT 1 FROM chat_agent_logins
-        WHERE queue_id=$1 AND user_id=$2 AND is_logged_in=true LIMIT 1`,
+        WHERE queue_id=$1 AND user_id=$2 AND is_logged_in=true
+          AND last_seen_at > NOW() - INTERVAL '2 minutes' LIMIT 1`,
       [queue.id, nextUserId]
     ).catch(() => ({ rows: [] }));
     if (nextRows.length) return nextUserId;
