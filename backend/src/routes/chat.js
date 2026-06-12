@@ -265,13 +265,13 @@ router.get('/conversations', async (req, res) => {
                 NULLIF(NULLIF(cm.text_content,''),'unsupported'),
                 CASE cm.msg_type
                   WHEN 'image'    THEN 'Imagem'
-                  WHEN 'audio'    THEN 'Ãudio'
-                  WHEN 'video'    THEN 'VÃ­deo'
+                  WHEN 'audio'    THEN 'Audio'
+                  WHEN 'video'    THEN 'Video'
                   WHEN 'document' THEN 'Documento'
                   WHEN 'sticker'  THEN 'Figurinha'
-                  WHEN 'location' THEN 'LocalizaÃ§Ã£o'
+                  WHEN 'location' THEN 'Localizacao'
                   WHEN 'contact'  THEN 'Contato'
-                  WHEN 'reaction' THEN 'ReaÃ§Ã£o'
+                  WHEN 'reaction' THEN 'Reacao'
                   ELSE 'Mensagem'
                 END)
               FROM chat_messages cm
@@ -579,12 +579,15 @@ router.post('/conversations/:id/messages', async (req, res) => {
     }
 
     const zapiMessageId = zapiResult?.messageId || zapiResult?.zaapId || null;
+    // Guarda o base64 enviado como media_url para a mensagem aparecer/tocar no
+    // chat imediatamente; o webhook da Z-API troca depois pela URL hospedada.
+    const mediaToStore = type !== 'text' && base64 ? base64 : null;
     const { rows: msgRows } = await pool.query(
       `INSERT INTO chat_messages
          (conversation_id, zapi_message_id, from_me, sender_id, sender_name,
           msg_type, text_content, media_url, file_name, caption, status, sent_at)
        VALUES ($1,$2,true,$3,$4,$5,$6,$7,$8,$9,'SENT',NOW()) RETURNING *`,
-      [conv.id, zapiMessageId, user.id, user.name, type, type === 'text' ? text.trim() : null, null, fileName || null, caption || null]
+      [conv.id, zapiMessageId, user.id, user.name, type, type === 'text' ? text.trim() : null, mediaToStore, fileName || null, caption || null]
     );
 
     await pool.query(

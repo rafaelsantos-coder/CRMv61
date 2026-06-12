@@ -4481,16 +4481,20 @@ async function _c68doSend(){
 function _c68startRec(){
   navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
     CS.recStream=stream; CS.recChunks=[];
-    CS.rec=new MediaRecorder(stream);
+    // ogg/opus é o formato nativo de voz do WhatsApp; webm fica como fallback (Chrome)
+    const recMime=['audio/ogg;codecs=opus','audio/webm;codecs=opus','audio/webm']
+      .find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
+    CS.rec=recMime?new MediaRecorder(stream,{mimeType:recMime}):new MediaRecorder(stream);
     CS.rec.ondataavailable=e=>{if(e.data.size>0)CS.recChunks.push(e.data);};
     CS.rec.onstop=async()=>{
       clearInterval(CS.recTimer);
       document.getElementById('c68-recbar')?.classList.remove('on');
       document.getElementById('c68-mic')?.classList.remove('rec');
-      const blob=new Blob(CS.recChunks,{type:CS.recChunks[0]?.type||'audio/webm'});
+      const mt=CS.recChunks[0]?.type||recMime||'audio/webm';
+      const blob=new Blob(CS.recChunks,{type:mt});
       const r=new FileReader();
       r.onload=async ev=>{
-        CS.attach={type:'audio',base64:ev.target.result,fileName:'audio.webm'};
+        CS.attach={type:'audio',base64:ev.target.result,fileName:mt.includes('ogg')?'audio.ogg':'audio.webm'};
         await _c68doSend();
         CS.rec=null;CS.recChunks=[];CS.recStream=null;
       };

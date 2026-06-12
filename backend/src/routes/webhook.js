@@ -93,11 +93,14 @@ router.post('/', async (req, res) => {
 
     const mappedStatus = zapi.mapStatus(payload.status || payload.messageStatus || payload.ack);
     if (mid && mappedStatus) {
+      const hostedMediaUrl = extractMediaUrl(payload, detectMsgType(payload));
       const { rowCount } = await pool.query(
         `UPDATE chat_messages
-         SET status = $1, raw_payload = COALESCE(raw_payload,'{}'::jsonb) || $3::jsonb
+         SET status = $1,
+             media_url = COALESCE($4, media_url),
+             raw_payload = COALESCE(raw_payload,'{}'::jsonb) || $3::jsonb
          WHERE zapi_message_id = $2`,
-        [mappedStatus, mid, JSON.stringify({ lastStatusPayload: payload })]
+        [mappedStatus, mid, JSON.stringify({ lastStatusPayload: payload }), hostedMediaUrl]
       );
       if (payload.fromMe === true && rowCount > 0) {
         await markEvent(evtId);
@@ -151,6 +154,9 @@ router.post('/', async (req, res) => {
        DO UPDATE SET
          conversation_id = EXCLUDED.conversation_id,
          status = EXCLUDED.status,
+         media_url = COALESCE(EXCLUDED.media_url, chat_messages.media_url),
+         caption = COALESCE(EXCLUDED.caption, chat_messages.caption),
+         file_name = COALESCE(EXCLUDED.file_name, chat_messages.file_name),
          raw_payload = EXCLUDED.raw_payload
        RETURNING id`,
       [
