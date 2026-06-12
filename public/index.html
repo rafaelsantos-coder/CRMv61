@@ -3871,6 +3871,16 @@ const CSS = `
 
 /* ── Sidebar ── */
 #c68-sidebar{width:290px;min-width:290px;background:#141820;border-right:1px solid #1e2538;display:flex;flex-direction:column;flex-shrink:0}
+#c68-qlogin{border-bottom:1px solid #1e2538;background:#10141d;flex-shrink:0}
+.c68-ql-title{padding:8px 14px 2px;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#7b8ab8}
+.c68-ql-row{display:flex;align-items:center;gap:7px;padding:6px 14px 8px}
+.c68-ql-dot{width:8px;height:8px;border-radius:50%;background:#64748b;flex-shrink:0}
+.c68-ql-dot.on{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.7)}
+.c68-ql-name{flex:1;font-size:12px;color:#e5ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c68-ql-st{font-size:10px;color:#94a3b8;flex-shrink:0}
+.c68-ql-btn{height:24px;padding:0 10px;border-radius:6px;border:0;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+.c68-ql-btn.in{background:#16a34a;color:#fff}
+.c68-ql-btn.out{background:#334155;color:#fca5a5}
 #c68-sidebar-top{padding:10px 12px 8px;border-bottom:1px solid #1e2538}
 #c68-sidebar-top h3{font-size:12px;font-weight:700;color:#c8d0e8;margin:0 0 7px;display:flex;align-items:center;gap:6px}
 .c68-badge-menu{background:#25d366;color:#000;font-size:10px;font-weight:700;border-radius:100px;padding:1px 5px;min-width:16px;text-align:center}
@@ -4023,6 +4033,7 @@ function buildHtml(){
     <div id="c68-newbar">
       <button class="c68-newbtn w100" onclick="_c68openNewModal()">➕ Novo atendimento</button>
     </div>
+    <div id="c68-qlogin"></div>
     <div id="c68-list"><div style="padding:12px;font-size:11px;color:#4a5580;font-family:monospace">Carregando...</div></div>
   </div>
 
@@ -4084,6 +4095,7 @@ window.renderChat = function(user, container){
   container.innerHTML = buildHtml();
   _c68bindEvents(user);
   _c68loadList(user);
+  _c68loadAgentStatus();
   _c68startPollUnread(user);
 };
 
@@ -4152,12 +4164,57 @@ function _c68bindEvents(user){
   window._c68taKey = e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_c68doSend();} };
   window._c68taResize = el => { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; };
   window._c68lb    = src => { document.getElementById('c68-lb-img').src=src; document.getElementById('c68-lb').classList.add('on'); };
+  window._c68renderQLogin = () => {
+    const el=document.getElementById('c68-qlogin');
+    if(!el) return;
+    const qs=CS.agentQueues||[];
+    if(!qs.length){ el.innerHTML=''; return; }
+    el.innerHTML='<div class="c68-ql-title">Minhas filas de atendimento</div>'+qs.map(q=>`
+      <div class="c68-ql-row">
+        <span class="c68-ql-dot ${q.is_logged_in?'on':''}"></span>
+        <span class="c68-ql-name" title="${esc(q.name)}">${esc(q.name)}</span>
+        <span class="c68-ql-st">${q.is_logged_in?'Logado':'Deslogado'}</span>
+        ${q.is_logged_in
+          ?`<button class="c68-ql-btn out" onclick="_c68qLogout(${q.id})">Sair</button>`
+          :`<button class="c68-ql-btn in" onclick="_c68qLogin(${q.id})">Entrar</button>`}
+      </div>`).join('');
+  };
+  window._c68loadAgentStatus = async () => {
+    CS.agentQueues = await api('GET','/api/chat/agent-status') || [];
+    _c68renderQLogin();
+  };
+  window._c68qLogin = async id => {
+    const r=await api('POST','/api/chat/agent-login',{queueId:id});
+    if(!r){ alert(window.__chat68LastError||'Não foi possível entrar na fila.'); return; }
+    await _c68loadAgentStatus();
+  };
+  window._c68qLogout = async id => {
+    if(!confirm('Sair do atendimento desta fila? Você não receberá novas transferências até entrar novamente.')) return;
+    const r=await api('POST','/api/chat/agent-logout',{queueId:id});
+    if(!r){ alert(window.__chat68LastError||'Não foi possível sair da fila.'); return; }
+    await _c68loadAgentStatus();
+  };
+  window._c68loadTrUsers = async () => {
+    const usel=document.getElementById('c68-tr-u');
+    if(!usel) return;
+    usel.innerHTML='<option value="">Carregando atendentes logados...</option>';
+    const conv=CS.convs.find(x=>Number(x.id)===Number(CS.selId));
+    const qv=document.getElementById('c68-tr-q')?.value;
+    const queueId=qv?Number(qv):(conv?.queue_id||null);
+    const list=await api('GET','/api/chat/logged-users'+(queueId?`?queueId=${queueId}`:''))||[];
+    const others=list.filter(u=>Number(u.id)!==Number(CS.user?.id||0));
+    usel.innerHTML='<option value="">— distribuição automática —</option>'+(others.length
+      ?others.map(u=>`<option value="${u.id}">${esc(u.name)} (${u.role})</option>`).join('')
+      :'<option value="" disabled>(nenhum atendente logado nesta fila)</option>');
+  };
   window._c68openTr = () => {
     if(!CS.selId) return;
     const qsel=document.getElementById('c68-tr-q');
-    const usel=document.getElementById('c68-tr-u');
-    if(qsel) qsel.innerHTML='<option value="">— manter fila atual —</option>'+CS.queues.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join('');
-    if(usel) usel.innerHTML='<option value="">— distribuição automática —</option>'+CS.users.map(u=>`<option value="${u.id}">${esc(u.name)} (${u.role})</option>`).join('');
+    if(qsel){
+      qsel.innerHTML='<option value="">— manter fila atual —</option>'+CS.queues.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join('');
+      qsel.onchange=_c68loadTrUsers;
+    }
+    _c68loadTrUsers();
     document.getElementById('c68-tmodal')?.classList.add('on');
   };
   window._c68closeTr = () => document.getElementById('c68-tmodal')?.classList.remove('on');
@@ -4169,6 +4226,7 @@ function _c68bindEvents(user){
       toQueueId:q?Number(q):null, toUserId:u?Number(u):null, reason:r2||null
     });
     if(res?.ok){ _c68closeTr(); await _c68loadList(user); _c68openConv(CS.selId,user); }
+    else alert(window.__chat68LastError||'Não foi possível transferir a conversa.');
   };
   window._c68closeConv = async () => {
     if(!CS.selId) return;

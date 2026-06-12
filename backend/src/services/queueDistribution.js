@@ -76,9 +76,24 @@ async function assignUserForQueue(queueId) {
 
   if (!users.length) return null;
 
+  // Prioriza atendentes logados na ferramenta de chat. Se ninguem estiver
+  // logado, cai para todos os vinculados para a conversa nao ficar orfa.
+  let candidates = users;
+  try {
+    const { rows: logged } = await pool.query(
+      'SELECT user_id FROM chat_agent_logins WHERE queue_id = $1 AND is_logged_in = true',
+      [queueId]
+    );
+    const loggedIds = new Set(logged.map(r => Number(r.user_id)));
+    const onlyLogged = users.filter(u => loggedIds.has(Number(u.id)));
+    if (onlyLogged.length) candidates = onlyLogged;
+  } catch {
+    // tabela chat_agent_logins pode ainda nao existir (migration 010 pendente)
+  }
+
   // O chat operacional nao tem uma caixa publica por fila. Mesmo em modo manual,
   // a conversa precisa ter um responsavel para nao ficar invisivel.
-  if (queue.distribution_type === 'manual') return users[0].id;
+  if (queue.distribution_type === 'manual') return candidates[0].id;
 
   if (queue.distribution_type === 'least_open') {
     const { rows } = await pool.query(
@@ -92,21 +107,22 @@ async function assignUserForQueue(queueId) {
        WHERE qu.queue_id = $1
          AND qu.is_active = true
          AND u.active = true
+         AND u.id = ANY($2::int[])
        GROUP BY u.id
        ORDER BY open_count ASC, u.id ASC
        LIMIT 1`,
-      [queueId]
+      [queueId, candidates.map(u => u.id)]
     );
     return rows[0]?.id || null;
   }
 
   if (queue.distribution_type === 'round_robin') {
     const lastId = queue.last_assigned_user_id;
-    let next = users[0];
+    let next = candidates[0];
 
     if (lastId) {
-      const idx = users.findIndex(u => Number(u.id) === Number(lastId));
-      next = users[(idx + 1) % users.length] || users[0];
+      const idx = candidates.findIndex(u => Number(u.id) === Number(lastId));
+      next = candidates[(idx + 1) % candidates.length] || candidates[0];
     }
 
     await pool.query(
@@ -118,7 +134,7 @@ async function assignUserForQueue(queueId) {
   }
 
   // first_available: por enquanto pega o primeiro ativo.
-  return users[0].id;
+  return candidates[0].id;
 }
 
 module.exports = {
