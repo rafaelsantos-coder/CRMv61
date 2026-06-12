@@ -4432,7 +4432,7 @@ async function _c68pollMsgs(id,user){
   await _c68loadList(user);
 }
 
-// ── Polling unread (badge menu) ───────────────────────────────────────────────
+// ── Polling unread (badge menu) + lista de conversas em tempo real ───────────
 function _c68startPollUnread(user){
   if(CS.pollUnread){clearInterval(CS.pollUnread);CS.pollUnread=null;}
   CS.pollUnread=setInterval(async()=>{
@@ -4443,7 +4443,19 @@ function _c68startPollUnread(user){
     if(b){b.textContent=t;b.style.display=t>0?'inline-block':'none';}
     if(t>CS.lastUnread && window.__currentModule!=='chat') beep();
     CS.lastUnread=t;
-  },8000);
+    // Atualiza a lista de conversas (novas conversas/mensagens aparecem sem recarregar)
+    if(document.getElementById('c68-list')){
+      const data=await api('GET','/api/chat/conversations');
+      if(data){
+        const hadNew=data.some(c=>!CS.convs.find(x=>Number(x.id)===Number(c.id)));
+        CS.convs=data;
+        const q=(document.getElementById('c68-search')?.value||'').toLowerCase();
+        CS.filtered=q?data.filter(c=>(c.client_name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)):data;
+        _c68renderList(user);
+        if(hadNew) beep();
+      }
+    }
+  },6000);
 }
 
 // ── Envio ─────────────────────────────────────────────────────────────────────
