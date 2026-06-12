@@ -252,18 +252,37 @@ async function resolveAssignmentForIncoming(conversation, queue, suggestedUserId
   if (!queue?.id) return null;
 
   const { rows } = await pool.query(
-    `SELECT 1
-       FROM queue_users qu
-       JOIN users u ON u.id = qu.user_id
-      WHERE qu.queue_id=$1
-        AND qu.user_id=$2
-        AND qu.is_active=true
-        AND u.active=true
-      LIMIT 1`,
+    `SELECT
+       EXISTS (
+         SELECT 1
+           FROM queue_users qu
+           JOIN users u ON u.id = qu.user_id
+          WHERE qu.queue_id=$1 AND qu.user_id=$2 AND qu.is_active=true AND u.active=true
+       ) AS in_queue,
+       EXISTS (
+         SELECT 1 FROM chat_agent_logins al
+          WHERE al.queue_id=$1 AND al.user_id=$2 AND al.is_logged_in=true
+       ) AS logged_in`,
     [queue.id, currentUserId]
-  ).catch(() => ({ rows: [] }));
+  ).catch(() => ({ rows: [{ in_queue: true, logged_in: true }] }));
+  const owner = rows[0] || { in_queue: true, logged_in: true };
 
-  return rows.length ? null : (nextUserId || null);
+  // Dono continua valido: esta na fila e logado no chat.
+  if (owner.in_queue && owner.logged_in) return null;
+
+  // Dono fora da fila ou deslogado: repassa apenas se o sugerido esta logado,
+  // para a conversa nao ficar pulando entre atendentes deslogados.
+  if (nextUserId && nextUserId !== currentUserId) {
+    const { rows: nextRows } = await pool.query(
+      `SELECT 1 FROM chat_agent_logins
+        WHERE queue_id=$1 AND user_id=$2 AND is_logged_in=true LIMIT 1`,
+      [queue.id, nextUserId]
+    ).catch(() => ({ rows: [] }));
+    if (nextRows.length) return nextUserId;
+  }
+
+  // Ninguem logado para assumir: mantem com o dono se ele ainda esta na fila.
+  return owner.in_queue ? null : (nextUserId || null);
 }
 
 /**
@@ -419,12 +438,18 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
   const contact = apiInstance ? await zapi.fetchContact(apiInstance, phoneToSave).catch(() => null) : null;
   const finalName = contact?.name || clientName || phoneToSave;
 
-  const lead = await findOrCreateOpportunityForLead({
-    phone: phoneToSave,
-    clientName: finalName,
-    assignedUserId: assignedByRule || null,
-    queue,
-  });
+  // A criacao da lead nunca pode impedir o registro da mensagem.
+  let lead = { opportunityId: null, assignedUserId: assignedByRule || null };
+  try {
+    lead = await findOrCreateOpportunityForLead({
+      phone: phoneToSave,
+      clientName: finalName,
+      assignedUserId: assignedByRule || null,
+      queue,
+    });
+  } catch (err) {
+    console.error('[WEBHOOK LEAD]', err.message);
+  }
   const opportunityId = lead.opportunityId;
   const assignedUserId = lead.assignedUserId;
 
