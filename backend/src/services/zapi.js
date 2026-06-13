@@ -10,6 +10,7 @@ function preferValue(primary, fallback = '') {
   return primary === undefined || primary === null || primary === '' ? fallback : primary;
 }
 
+<<<<<<< HEAD
 const ZAPI_URL_RE = /instances\/([A-Za-z0-9_-]+)\/token\/([A-Za-z0-9_-]+)/i;
 
 function cleanCredValue(value) {
@@ -53,6 +54,8 @@ function maskCred(value, keepStart = 4, keepEnd = 2) {
   return v.slice(0, keepStart) + '••••' + v.slice(-keepEnd);
 }
 
+=======
+>>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
 async function getLegacyCreds() {
   const { rows } = await pool.query('SELECT * FROM zapi_config ORDER BY id DESC LIMIT 1');
   return rows[0] || null;
@@ -60,7 +63,11 @@ async function getLegacyCreds() {
 
 function mergeCreds(instanceRow, legacyRow) {
   if (!instanceRow && !legacyRow) return null;
+<<<<<<< HEAD
   return sanitizeCreds({
+=======
+  return {
+>>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
     id: instanceRow?.id || null,
     name: preferValue(instanceRow?.name, legacyRow?.name || 'Z-API'),
     provider: preferValue(instanceRow?.provider, 'Z-API'),
@@ -68,8 +75,12 @@ function mergeCreds(instanceRow, legacyRow) {
     token: preferValue(instanceRow?.token, legacyRow?.token || ''),
     client_token: preferValue(instanceRow?.client_token, legacyRow?.client_token || ''),
     webhook_url: preferValue(instanceRow?.webhook_url, legacyRow?.webhook_url || ''),
+<<<<<<< HEAD
     api_url: instanceRow?.api_url || '',
   });
+=======
+  };
+>>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
 }
 
 async function getCreds(apiInstanceId = null) {
@@ -113,6 +124,7 @@ async function getCreds(apiInstanceId = null) {
   return creds;
 }
 
+<<<<<<< HEAD
 async function listCredsCandidates() {
   const legacyRow = await getLegacyCreds().catch(() => null);
   const out = [];
@@ -158,6 +170,8 @@ async function listCredsCandidates() {
   return out;
 }
 
+=======
+>>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
 function zapiBase(creds) {
   return `https://api.z-api.io/instances/${creds.instance_id}/token/${creds.token}`;
 }
