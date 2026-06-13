@@ -610,14 +610,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
   function seed(){
     const users=[
-      {id:1,name:'Administrador Sulnet',username:'admin',password:'admin123',role:'admin',city:'Santa Rosa',active:true,mustChangePassword:false,email:'admin@sulnet.com.br',funnelAccessIds:[1,2,3,4,5,6]},
-      {id:2,name:'Backoffice Comercial',username:'bko',password:'bko123',role:'bko',city:'Santa Rosa',active:true,mustChangePassword:false,email:'bko@sulnet.com.br',funnelAccessIds:[2]},
-      {id:3,name:'Gerência Comercial',username:'gerencia',password:'gerencia123',role:'gerencia',city:'Santa Rosa',active:true,mustChangePassword:false,email:'gerencia@sulnet.com.br',funnelAccessIds:[1,2,3,4,5,6]},
-      {id:4,name:'Rafael Teste',username:'rafael.teste',password:'comercial123',role:'vendedor',city:'Santa Rosa',active:true,mustChangePassword:false,email:'rafael@sulnet.com.br',funnelAccessIds:[1]},
-      {id:5,name:'Andressa Reus',username:'andressa.reus',password:'comercial123',role:'vendedor',city:'Cerro Largo',active:true,mustChangePassword:false,email:'andressa@sulnet.com.br',funnelAccessIds:[1]},
-      {id:6,name:'Gabrieli Borth Padilha',username:'gabrieli.padilha',password:'comercial123',role:'vendedor',city:'Santo Ângelo',active:true,mustChangePassword:false,email:'gabrieli@sulnet.com.br',funnelAccessIds:[1]},
-      {id:7,name:'Jenifer Garcia Dutra',username:'jenifer.dutra',password:'comercial123',role:'vendedor',city:'Santa Rosa',active:true,mustChangePassword:false,email:'jenifer@sulnet.com.br',funnelAccessIds:[1]},
-      {id:8,name:'Daniel Augusto Strieder Hubner',username:'daniel.hubner',password:'comercial123',role:'vendedor',city:'Entre-Ijuís',active:true,mustChangePassword:false,email:'daniel@sulnet.com.br',funnelAccessIds:[1]},
+      {id:1,name:'Administrador Sulnet',username:'admin',password:'comercial123',role:'admin',city:'Santa Rosa',active:true,mustChangePassword:true,email:'admin@sulnet.com.br',funnelAccessIds:[1,2,3,4,5,6]},
+      {id:2,name:'Backoffice Comercial',username:'bko',password:'comercial123',role:'bko',city:'Santa Rosa',active:true,mustChangePassword:true,email:'bko@sulnet.com.br',funnelAccessIds:[2]},
+      {id:3,name:'Gerência Comercial',username:'gerencia',password:'comercial123',role:'gerencia',city:'Santa Rosa',active:true,mustChangePassword:true,email:'gerencia@sulnet.com.br',funnelAccessIds:[1,2,3,4,5,6]},
+      {id:4,name:'Rafael Teste',username:'rafael.teste',password:'comercial123',role:'vendedor',city:'Santa Rosa',active:true,mustChangePassword:true,email:'rafael@sulnet.com.br',funnelAccessIds:[1]},
+      {id:5,name:'Andressa Reus',username:'andressa.reus',password:'comercial123',role:'vendedor',city:'Cerro Largo',active:true,mustChangePassword:true,email:'andressa@sulnet.com.br',funnelAccessIds:[1]},
+      {id:6,name:'Gabrieli Borth Padilha',username:'gabrieli.padilha',password:'comercial123',role:'vendedor',city:'Santo Ângelo',active:true,mustChangePassword:true,email:'gabrieli@sulnet.com.br',funnelAccessIds:[1]},
+      {id:7,name:'Jenifer Garcia Dutra',username:'jenifer.dutra',password:'comercial123',role:'vendedor',city:'Santa Rosa',active:true,mustChangePassword:true,email:'jenifer@sulnet.com.br',funnelAccessIds:[1]},
+      {id:8,name:'Daniel Augusto Strieder Hubner',username:'daniel.hubner',password:'comercial123',role:'vendedor',city:'Entre-Ijuís',active:true,mustChangePassword:true,email:'daniel@sulnet.com.br',funnelAccessIds:[1]},
     ];
     const funnels=[
       {id:1,name:'13. RECEPTIVO',description:'Funil comercial receptivo',sortOrder:1,active:true},
@@ -1317,6 +1317,13 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     st.counters.analysis=Math.max(st.counters.analysis,...st.analysisRequests.map(x=>Number(x.id)||0));
     st.counters.calendar=Math.max(st.counters.calendar||0,...(st.calendarEvents||[]).map(x=>Number(x.id)||0));
     st.counters.creditRule=Math.max(st.counters.creditRule||0,...(st.creditRules||[]).map(x=>Number(x.id)||0));
+    // Preparação para produção: reseta a senha de todos para a padrão e
+    // exige troca no primeiro acesso (aplicado uma única vez por navegador).
+    if(!st.passwordResetV69){
+      st.users.forEach(u=>{u.password='comercial123';u.mustChangePassword=true});
+      st.passwordResetV69=true;
+      changed=true;
+    }
     if(changed)localStorage.setItem(STORAGE_KEY,JSON.stringify(st));
     return st;
   }
@@ -1371,7 +1378,42 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   function route(){const h=location.hash.replace(/^#\/?/,'');const p=h.split('/')[0]||'crm';ui.module=p;}
   window.addEventListener('hashchange',()=>{route();render()});
 
-  function render(){route();const user=getUser();if(!user)return renderLogin();if(!allowedModule(user,ui.module)){ui.module='crm';location.hash='#/crm';return}renderLayout(user)}
+  function render(){route();const user=getUser();if(!user)return renderLogin();if(user.mustChangePassword)return renderForcePassword(user);if(!allowedModule(user,ui.module)){ui.module='crm';location.hash='#/crm';return}renderLayout(user)}
+  function renderForcePassword(user){document.getElementById('app').innerHTML=`
+    <div class="login">
+      <section class="login-brand">
+        <div><img class="login-logo" src="${logo}" alt="Sulnet"><div class="login-title"><h1>Sistema Integrado<br><span>Sulnet V1</span></h1><p>Por segurança, é necessário definir uma nova senha pessoal no primeiro acesso.</p></div></div>
+        <div class="login-foot">Sistema Integrado Sulnet V1</div>
+      </section>
+      <section class="login-panel">
+        <div class="login-card">
+          <h2>Defina sua nova senha</h2><p>Olá, <strong>${esc(user.name)}</strong>. Este é seu primeiro acesso: crie uma senha pessoal para continuar.</p>
+          <form id="forcePasswordForm">
+            <div class="field"><label>Nova senha</label><input name="newPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="mínimo 8 caracteres"></div>
+            <div class="field"><label>Confirmar nova senha</label><input name="confirmPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="repita a nova senha"></div>
+            <button class="btn btn-primary w100" type="submit">Salvar nova senha e entrar</button>
+          </form>
+          <p class="small mt14"><a href="#" data-action="logout">Sair e voltar ao login</a></p>
+        </div>
+      </section>
+    </div>`}
+  function submitForcePassword(form){
+    const user=getUser();
+    if(!user){render();return}
+    const d=fd(form);
+    const nova=String(d.newPassword||'');
+    if(nova.length<8){toast('A nova senha deve ter pelo menos 8 caracteres.','error');return}
+    if(nova==='comercial123'){toast('Escolha uma senha diferente da senha padrão.','error');return}
+    if(nova!==String(d.confirmPassword||'')){toast('A confirmação não confere com a nova senha.','error');return}
+    const st=getState();
+    const u=st.users.find(x=>Number(x.id)===Number(user.id));
+    if(!u){toast('Usuário não encontrado.','error');return}
+    const senhaAntiga=u.password;
+    u.password=nova;u.mustChangePassword=false;setState(st);
+    fetch('/api/auth/change-password',{method:'POST',headers:buildAuthHeaders(),body:JSON.stringify({currentPassword:senhaAntiga,newPassword:nova})}).catch(()=>{});
+    toast('Senha alterada com sucesso. Bem-vindo!');
+    location.hash='#/crm';render();
+  }
   function renderLogin(){document.getElementById('app').innerHTML=`
     <div class="login">
       <section class="login-brand">
@@ -1381,9 +1423,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       <section class="login-panel">
         <div class="login-card">
           <h2>Entrar no sistema</h2><p>Informe seu usuário e senha para acessar.</p>
-          <form id="loginForm"><div class="field"><label>Usuário</label><input name="username" autocomplete="username" required placeholder="ex: rafael.teste"></div><div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="••••••••"></div><button class="btn btn-primary w100" type="submit">Entrar</button></form>
-          <p class="small mt14 mb0">Acesso rápido para testes:</p><div class="demo-users"><button data-demo="admin">Admin</button><button data-demo="bko">BKO</button><button data-demo="gerencia">Gerência</button><button data-demo="rafael.teste">Vendedor</button></div>
-          <p class="small mt14">Senhas: admin123, bko123, gerencia123 ou comercial123.</p>
+          <form id="loginForm"><div class="field"><label>Usuário</label><input name="username" autocomplete="username" required placeholder="seu usuário"></div><div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="••••••••"></div><button class="btn btn-primary w100" type="submit">Entrar</button></form>
         </div>
       </section>
     </div>`}
@@ -3135,7 +3175,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   function closeModal(){document.querySelectorAll('.modal-back').forEach(m=>m.remove())}
 
   document.addEventListener('click',e=>{
-    const demo=e.target.closest('[data-demo]');if(demo){const st=getState();const u=st.users.find(x=>x.username===demo.dataset.demo);if(u){setUser(u.id);location.hash='#/crm';render()};return}
     const nav=e.target.closest('[data-nav]');if(nav){location.hash='#/'+nav.dataset.nav;return}
     const adm=e.target.closest('[data-admin-tab]');if(adm){ui.adminTab=adm.dataset.adminTab;render();return}
     const dashTab=e.target.closest('[data-dashboard-tab]');if(dashTab){ui.dashTab=dashTab.dataset.dashboardTab;render();return}
@@ -3172,7 +3211,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       if(tab==='produtos')updateOpportunityProductFields(form);
       return;
     }
-    if(action==='logout'){try{fetch('/api/chat/agent-logout-all',{method:'POST',headers:buildAuthHeaders(),keepalive:true}).catch(()=>{});}catch(e){}sessionStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_KEY);render();return}
+    if(action==='logout'){try{fetch('/api/chat/agent-logout-all',{method:'POST',headers:buildAuthHeaders(),keepalive:true}).catch(()=>{});}catch(e){}sessionStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_KEY);sessionStorage.removeItem('sulnet_jwt');localStorage.removeItem('sulnet_jwt');render();return}
     if(action==='resetData'){if(confirm('Restaurar dados de demonstração e apagar alterações locais?'))resetData();return}
     if(action==='newOpp'){try{const st=getState();const u=getUser();let stageId=Number(act.dataset.stage||0);let funnelId=st.stages.find(s=>Number(s.id)===stageId)?.funnelId||ui.funnelId;const first=getFirstStage(st,funnelId);oppModal({},first?.id||stageId);}catch(err){console.error(err);toast('Não foi possível abrir a nova oportunidade: '+(err?.message||err),'error')}return}
     if(action==='openOpp'){try{const st=getState();const card=act.closest('[data-opp-id]');const opp=st.opportunities.find(o=>o.id===Number(card?.dataset.oppId));if(opp)oppModal(opp);else toast('Oportunidade não encontrada para edição.','error');}catch(err){console.error(err);toast('Não foi possível editar a oportunidade: '+(err?.message||err),'error')}return}
@@ -3254,7 +3293,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   document.addEventListener('dragover',e=>{const dz=e.target.closest('[data-drop-stage]');if(dz){e.preventDefault();dz.classList.add('dragover')}});
   document.addEventListener('dragleave',e=>{const dz=e.target.closest('[data-drop-stage]');if(dz)dz.classList.remove('dragover')});
   document.addEventListener('drop',e=>{const dz=e.target.closest('[data-drop-stage]');if(!dz)return;e.preventDefault();dz.classList.remove('dragover');const id=Number(e.dataTransfer.getData('text/plain'));const st=getState();const opp=st.opportunities.find(o=>o.id===id);if(opp){const u=getUser();const targetStage=Number(dz.dataset.dropStage);const targetFunnel=st.stages.find(s=>s.id===targetStage)?.funnelId||opp.funnelId;if(!hasFunnelAccess(st,u,targetFunnel)){toast('Você não tem acesso ao funil de destino.','error');return;}const wonStage=getWonStage(st,targetFunnel);if(wonStage&&Number(targetStage)===Number(wonStage.id)){toast('Para levar a oportunidade para GANHO, abra a oportunidade e use o botão Marcar Ganho. O sistema validará todos os campos obrigatórios.','warn');return;}const moveCheck=validateOpportunityMove(st,opp,targetStage);if(!moveCheck.ok){toast(moveCheck.message,'error');return;}opp.stageId=targetStage;opp.funnelId=targetFunnel;opp.updatedAt=now();opp.history=opp.history||[];opp.history.push({at:now(),actor:u.name,action:'Movida para etapa '+stageName(st,opp.stageId)});setState(st);render();toast('Oportunidade movida.')}});
-  document.addEventListener('submit',async e=>{e.preventDefault();try{const id=e.target.id;if(id==='loginForm')submitLogin(e.target);if(id==='oppForm')await submitOpp(e.target);if(id==='creditForm')submitCredit(e.target);if(id==='analysisForm')submitBkoAnalysis(e.target);if(id==='creditRuleForm')submitCreditRule(e.target);if(id==='contestForm')submitContest(e.target);if(id==='decisionForm')submitDecision(e.target);if(id==='outcomeForm')submitOutcome(e.target);if(id==='adminUserForm')adminCreateUser(e.target);if(id==='adminEditUserForm')adminUpdateUser(e.target);if(id==='adminFunnelForm')adminCreateFunnel(e.target);if(id==='adminEditFunnelForm')adminUpdateFunnel(e.target);if(id==='adminStageForm')adminCreateStage(e.target);if(id==='adminEditStageForm')adminUpdateStage(e.target);if(id==='adminOriginForm')adminCreateOrigin(e.target);if(id==='adminEditOriginForm')adminUpdateOrigin(e.target);if(id==='adminCategoryForm')adminCreateProductCategory(e.target);if(id==='adminEditCategoryForm')adminUpdateCategory(e.target);if(id==='adminPlanForm')adminCreatePlan(e.target);if(id==='adminEditPlanForm')adminUpdatePlan(e.target);if(id==='adminTagForm')adminCreateTag(e.target);if(id==='adminEditTagForm')adminUpdateTag(e.target);if(id==='adminOutcomeForm')adminCreateOutcome(e.target);if(id==='adminEditOutcomeForm')adminUpdateOutcomeReason(e.target);if(id==='agendaEventForm')submitAgendaEvent(e.target);if(id==='googleAgendaForm')submitGoogleAgenda(e.target)}catch(err){console.error(err);toast('Não foi possível salvar. Detalhe técnico: '+(err?.message||err),'error')}});
+  document.addEventListener('submit',async e=>{e.preventDefault();try{const id=e.target.id;if(id==='loginForm')submitLogin(e.target);if(id==='forcePasswordForm')submitForcePassword(e.target);if(id==='oppForm')await submitOpp(e.target);if(id==='creditForm')submitCredit(e.target);if(id==='analysisForm')submitBkoAnalysis(e.target);if(id==='creditRuleForm')submitCreditRule(e.target);if(id==='contestForm')submitContest(e.target);if(id==='decisionForm')submitDecision(e.target);if(id==='outcomeForm')submitOutcome(e.target);if(id==='adminUserForm')adminCreateUser(e.target);if(id==='adminEditUserForm')adminUpdateUser(e.target);if(id==='adminFunnelForm')adminCreateFunnel(e.target);if(id==='adminEditFunnelForm')adminUpdateFunnel(e.target);if(id==='adminStageForm')adminCreateStage(e.target);if(id==='adminEditStageForm')adminUpdateStage(e.target);if(id==='adminOriginForm')adminCreateOrigin(e.target);if(id==='adminEditOriginForm')adminUpdateOrigin(e.target);if(id==='adminCategoryForm')adminCreateProductCategory(e.target);if(id==='adminEditCategoryForm')adminUpdateCategory(e.target);if(id==='adminPlanForm')adminCreatePlan(e.target);if(id==='adminEditPlanForm')adminUpdatePlan(e.target);if(id==='adminTagForm')adminCreateTag(e.target);if(id==='adminEditTagForm')adminUpdateTag(e.target);if(id==='adminOutcomeForm')adminCreateOutcome(e.target);if(id==='adminEditOutcomeForm')adminUpdateOutcomeReason(e.target);if(id==='agendaEventForm')submitAgendaEvent(e.target);if(id==='googleAgendaForm')submitGoogleAgenda(e.target)}catch(err){console.error(err);toast('Não foi possível salvar. Detalhe técnico: '+(err?.message||err),'error')}});
 
   function fd(form){return Object.fromEntries(new FormData(form).entries())}
   function fdAll(form,name){return [...new FormData(form).getAll(name)].map(Number).filter(Boolean)}
@@ -3414,7 +3453,20 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     }
     return true;
   }
-  function submitLogin(form){const data=fd(form);const st=getState();const u=st.users.find(x=>x.username===data.username&&x.password===data.password&&x.active);if(!u){toast('Usuário ou senha inválidos.','error');return}setUser(u.id);location.hash='#/crm';render()}
+  function submitLogin(form){
+    const data=fd(form);
+    const st=getState();
+    const uname=String(data.username||'').trim().toLowerCase();
+    const u=st.users.find(x=>String(x.username).toLowerCase()===uname&&x.password===data.password&&x.active);
+    if(!u){toast('Usuário ou senha inválidos.','error');return}
+    setUser(u.id);
+    // Sessão no backend (JWT) em segundo plano, para as APIs do chat/uploads.
+    fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:uname,password:data.password})})
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{if(d?.token)sessionStorage.setItem('sulnet_jwt',d.token)})
+      .catch(()=>{});
+    location.hash='#/crm';render();
+  }
   function fileNameFromForm(form,fileInputName,currentInputName){const file=form.querySelector(`input[name="${fileInputName}"]`)?.files?.[0];return file?.name||form.querySelector(`input[name="${currentInputName}"]`)?.value||''
     const centralNuvemBox=form.querySelector('[data-product-section="centralNuvem"]');
     const isCentralNuvem=normName(catName)==='CENTRAL EM NUVEM';
