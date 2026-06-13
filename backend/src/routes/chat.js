@@ -124,6 +124,44 @@ async function findConversationByPhone(phone) {
   return rows[0] || null;
 }
 
+async function getSendCredentialCandidates(conv) {
+  const candidates = [];
+  const seen = new Set();
+
+  const pushCreds = (creds) => {
+    if (!creds?.instance_id || !creds?.token) return;
+    const key = `${creds.instance_id}::${creds.token}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push(creds);
+  };
+
+  let queueApiInstanceId = null;
+  if (conv.queue_id) {
+    const { rows } = await pool.query(
+      `SELECT q.api_instance_id
+         FROM attendance_queues q
+        WHERE q.id = $1
+        LIMIT 1`,
+      [conv.queue_id]
+    ).catch(() => ({ rows: [] }));
+    queueApiInstanceId = rows[0]?.api_instance_id || null;
+  }
+
+  if (queueApiInstanceId) {
+    pushCreds(await zapi.getCreds(queueApiInstanceId).catch(() => null));
+  }
+  if (conv.api_instance_id && Number(conv.api_instance_id) !== Number(queueApiInstanceId || 0)) {
+    pushCreds(await zapi.getCreds(conv.api_instance_id).catch(() => null));
+  }
+  for (const creds of await zapi.listCredsCandidates().catch(() => [])) {
+    pushCreds(creds);
+  }
+  pushCreds(await zapi.getCreds().catch(() => null));
+
+  return { candidates, queueApiInstanceId };
+}
+
 // ── CONFIG LEGADA Z-API ───────────────────────────────────────────────────
 async function getQueueForNewConversation(queueId, user) {
   if (!queueId) return null;
@@ -484,11 +522,8 @@ router.post('/conversations/:id/messages', async (req, res) => {
     if (owned.error) return res.status(owned.error[0]).json({ error: owned.error[1] });
     const conv = owned.conv;
 
-    let creds = null;
-    const fallbackCreds = await zapi.getCreds().catch(() => null);
-    if (conv.api_instance_id) creds = await zapi.getCreds(conv.api_instance_id).catch(() => null);
-    if (!creds) creds = fallbackCreds;
-    if (!creds) return res.status(400).json({ error: 'Z-API não configurada para esta conversa.' });
+    const { candidates, queueApiInstanceId } = await getSendCredentialCandidates(conv);
+    if (!candidates.length) return res.status(400).json({ error: 'Z-API não configurada para esta conversa.' });
 
     const targetPhone = zapiPhone(conv.phone || conv.phone_normalized);
     const sendWithCreds = async (activeCreds) => {
@@ -502,19 +537,19 @@ router.post('/conversations/:id/messages', async (req, res) => {
       throw new Error(`Tipo '${type}' não suportado.`);
     };
 
-    let zapiResult;
-    try {
-      zapiResult = await sendWithCreds(creds);
-    } catch (sendErr) {
-      const canRetry =
-        fallbackCreds &&
-        fallbackCreds.instance_id &&
-        fallbackCreds.token &&
-        (fallbackCreds.instance_id !== creds.instance_id || fallbackCreds.token !== creds.token);
-      if (!canRetry) throw sendErr;
-      zapiResult = await sendWithCreds(fallbackCreds);
-      creds = fallbackCreds;
+    let zapiResult = null;
+    let activeCreds = null;
+    let lastSendErr = null;
+    for (const creds of candidates) {
+      try {
+        zapiResult = await sendWithCreds(creds);
+        activeCreds = creds;
+        break;
+      } catch (sendErr) {
+        lastSendErr = sendErr;
+      }
     }
+    if (!zapiResult) throw lastSendErr || new Error('Falha ao enviar mensagem.');
 
     const zapiMessageId = zapiResult?.messageId || zapiResult?.zaapId || null;
     const { rows: msgRows } = await pool.query(
@@ -527,9 +562,21 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
     await pool.query(
       `UPDATE conversations
-          SET phone=$2, phone_normalized=$3, last_message_at=NOW(), status='in_attendance', assigned_user_id=$4, updated_at=NOW()
+          SET phone=$2,
+              phone_normalized=$3,
+              api_instance_id=COALESCE($4, api_instance_id),
+              last_message_at=NOW(),
+              status='in_attendance',
+              assigned_user_id=$5,
+              updated_at=NOW()
         WHERE id=$1`,
-      [conv.id, targetPhone, canonicalPhone(targetPhone), user.id]
+      [
+        conv.id,
+        targetPhone,
+        canonicalPhone(targetPhone),
+        activeCreds?.id || queueApiInstanceId || conv.api_instance_id || null,
+        user.id,
+      ]
     );
 
     res.status(201).json(msgRows[0]);

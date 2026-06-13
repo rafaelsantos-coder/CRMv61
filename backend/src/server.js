@@ -1,5 +1,5 @@
 /**
- * Sulnet V1 â€” Backend de ProduÃ§Ã£o
+ * Sulnet V1 — Backend de Produção
  */
 
 require('dotenv').config();
@@ -37,14 +37,14 @@ const PORT = process.env.PORT || 3000;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : true, credentials: true }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisiÃ§Ãµes. Tente novamente em 15 minutos.' } }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisições. Tente novamente em 15 minutos.' } }));
 app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' } }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 function requireQueueAdmin(req, res) {
   if (!req.user || !['admin', 'gerencia'].includes(req.user.role)) {
-    res.status(403).json({ error: 'Acesso restrito a administradores/gerÃªncia.' });
+    res.status(403).json({ error: 'Acesso restrito a administradores/gerência.' });
     return false;
   }
   return true;
@@ -261,20 +261,6 @@ async function ensureChatSchema(req, res, next) {
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()
     `);
 
-    await pool.query(`CREATE TABLE IF NOT EXISTS chat_agent_logins (
-      id SERIAL PRIMARY KEY,
-      user_id INT NOT NULL,
-      queue_id INT NOT NULL,
-      is_logged_in BOOLEAN DEFAULT false,
-      logged_in_at TIMESTAMPTZ,
-      logged_out_at TIMESTAMPTZ,
-      updated_at TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(user_id, queue_id)
-    )`);
-    await pool.query(`ALTER TABLE chat_agent_logins
-      ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ
-    `).catch(() => {});
-
     await pool.query('CREATE INDEX IF NOT EXISTS idx_conv_phone ON conversations(phone)').catch(() => {});
     await pool.query('CREATE INDEX IF NOT EXISTS idx_conv_last_msg ON conversations(last_message_at DESC)').catch(() => {});
     await pool.query('CREATE INDEX IF NOT EXISTS idx_msgs_conv_sent ON chat_messages(conversation_id, sent_at DESC, id DESC)').catch(() => {});
@@ -320,7 +306,7 @@ app.patch('/api/whatsapp/queues/:id/active', authMiddleware, async (req, res) =>
     if (!requireQueueAdmin(req, res)) return;
     const nextActive = req.body?.isActive === true || req.body?.isActive === 'true';
     const { rows } = await pool.query('UPDATE attendance_queues SET is_active=$1, updated_at=NOW() WHERE id=$2 RETURNING id, is_active, api_instance_id', [nextActive, req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Fila nÃ£o encontrada.' });
+    if (!rows.length) return res.status(404).json({ error: 'Fila não encontrada.' });
     const apiInstanceId = rows[0].api_instance_id;
     if (apiInstanceId && nextActive) {
       await pool.query(`
@@ -351,7 +337,7 @@ app.delete('/api/whatsapp/queues/:id/hard', authMiddleware, async (req, res) => 
     await client.query('BEGIN');
     await client.query('UPDATE conversations SET queue_id=NULL, updated_at=NOW() WHERE queue_id=$1', [req.params.id]).catch(() => {});
     const { rows } = await client.query('DELETE FROM attendance_queues WHERE id=$1 RETURNING id, api_instance_id', [req.params.id]);
-    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila nÃ£o encontrada.' }); }
+    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Fila não encontrada.' }); }
     const apiInstanceId = rows[0].api_instance_id;
     if (apiInstanceId) {
       await client.query(`
@@ -388,74 +374,41 @@ function patchIndexHtml(html) {
   patched = patched.replace('Erro ao carregar conversas. Verifique o banco/migrations e recarregue a tela.', "Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'");
 
   const chatLayout = `
-<style id="chat68-layout-v70">
+<style id="chat68-layout-v69">
 html,body{background:#f4f6fb!important;overflow-x:hidden}
-<<<<<<< HEAD
-#chat68{height:min(calc(100vh - 90px), 720px)!important;max-width:1280px!important;margin:16px auto!important;background:#ffffff!important;border:1px solid #dfe5f0!important;border-radius:14px!important;overflow:hidden!important;box-shadow:0 18px 50px rgba(15,23,42,.08)!important}
-#c68-sidebar{width:330px!important;min-width:330px!important;background:#111827!important;border-right:1px solid #243041!important}
-#c68-sidebar-top{padding:12px 14px!important;background:#0f172a!important;border-bottom:1px solid #243041!important}
-#c68-sidebar-top h3{font-size:14px!important;margin-bottom:10px!important;color:#f8fafc!important;letter-spacing:0!important}
-#c68-search,#c68-newph{height:36px!important;border-radius:8px!important;background:#182235!important;border:1px solid #2b3954!important;color:#e5ecff!important;font-size:13px!important}
-#c68-newbar{padding:10px 14px!important;gap:8px!important;background:#111827!important;border-bottom:1px solid #243041!important}
-.c68-newbtn{height:36px!important;border-radius:8px!important;background:#ff5a1f!important;border:0!important;color:white!important;font-weight:700!important;padding:0 14px!important}
-.c68-item{min-height:60px!important;padding:9px 14px!important;gap:10px!important;border-bottom:1px solid rgba(148,163,184,.12)!important}
-.c68-item:hover{background:#172132!important}.c68-item.sel{background:#22324a!important;border-left:4px solid #ff5a1f!important;padding-left:10px!important}
-.c68-av{width:40px!important;height:40px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
-.c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:3px!important}.c68-itime{color:#94a3b8!important}
+#chat68{height:calc(100vh - 54px)!important;max-width:1440px!important;margin:0 auto!important;background:#ffffff!important;border-left:1px solid #dfe5f0!important;border-right:1px solid #dfe5f0!important;box-shadow:0 18px 50px rgba(15,23,42,.08)!important}
+#c68-sidebar{width:360px!important;min-width:360px!important;background:#111827!important;border-right:1px solid #243041!important}
+#c68-sidebar-top{padding:16px!important;background:#0f172a!important;border-bottom:1px solid #243041!important}
+#c68-sidebar-top h3{font-size:14px!important;margin-bottom:12px!important;color:#f8fafc!important;letter-spacing:0!important}
+#c68-search,#c68-newph{height:38px!important;border-radius:8px!important;background:#182235!important;border:1px solid #2b3954!important;color:#e5ecff!important;font-size:13px!important}
+#c68-newbar{padding:12px 16px!important;gap:8px!important;background:#111827!important;border-bottom:1px solid #243041!important}
+.c68-newbtn{height:38px!important;border-radius:8px!important;background:#ff5a1f!important;border:0!important;color:white!important;font-weight:700!important;padding:0 14px!important}
+.c68-item{min-height:70px!important;padding:12px 16px!important;gap:12px!important;border-bottom:1px solid rgba(148,163,184,.12)!important}
+.c68-item:hover{background:#172132!important}.c68-item.sel{background:#22324a!important;border-left:4px solid #ff5a1f!important;padding-left:12px!important}
+.c68-av{width:44px!important;height:44px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
+.c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:4px!important}.c68-itime{color:#94a3b8!important}
 .c68-ibadge{background:#ff5a1f!important;color:white!important}.c68-istatus.open,.c68-istatus.in_attendance{background:#22c55e!important}
 #c68-mid{background:#f8fafc!important;position:relative!important;flex:1 1 auto!important;max-width:none!important;min-width:620px!important}
 #c68-empty{background:#f8fafc!important;color:#94a3b8!important}
-=======
-#chat68{height:calc(100vh - 54px)!important;max-width:1440px!important;margin:0 auto!important;background:#0b1018!important;border-left:1px solid #dfe5f0!important;border-right:1px solid #dfe5f0!important;box-shadow:0 18px 50px rgba(15,23,42,.12)!important}
-#c68-sidebar{width:360px!important;min-width:360px!important;background:#111722!important;border-right:1px solid #253044!important}
-#c68-sidebar-top{padding:16px!important;background:#0f1724!important;border-bottom:1px solid #253044!important}
-#c68-sidebar-top h3{font-size:14px!important;margin-bottom:12px!important;color:#f8fafc!important;letter-spacing:0!important}
-#c68-search,#c68-newph{height:38px!important;border-radius:8px!important;background:#182235!important;border:1px solid #2b3954!important;color:#e5ecff!important;font-size:13px!important}
-#c68-newbar{padding:12px 16px!important;gap:8px!important;background:#111722!important;border-bottom:1px solid #253044!important}
-.c68-newbtn{height:38px!important;border-radius:8px!important;background:#16a34a!important;border:0!important;color:white!important;font-weight:700!important;padding:0 14px!important}
-.c68-item{min-height:70px!important;padding:12px 16px!important;gap:12px!important;border-bottom:1px solid rgba(148,163,184,.12)!important}
-.c68-item:hover{background:#182235!important}.c68-item.sel{background:#1b2a3f!important;border-left:4px solid #ff4f1f!important;padding-left:12px!important}
-.c68-av{width:44px!important;height:44px!important;background:#23314a!important;color:#7dd3fc!important;border-color:#334155!important}
-.c68-iname{font-size:13px!important;color:#f8fafc!important}.c68-iprev{font-size:12px!important;color:#94a3b8!important;margin-top:4px!important}.c68-itime{color:#94a3b8!important}
-.c68-ibadge{background:#ff4f1f!important;color:white!important}.c68-istatus.open,.c68-istatus.in_attendance{background:#22c55e!important}
-#c68-mid{background:#0b1018!important;position:relative!important;flex:0 0 620px!important;max-width:620px!important;min-width:620px!important}
-#c68-empty{background:radial-gradient(circle at center,rgba(34,197,94,.08),transparent 36%),#0b1018!important;color:#94a3b8!important}
->>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
 #c68-empty span{font-size:58px!important;opacity:.22!important}#c68-empty p{color:#dbeafe!important;font-size:15px!important;font-weight:700!important}
-#c68-head{height:54px!important;padding:0 16px!important;background:#ffffff!important;border-bottom:1px solid #e5e7eb!important}
-.c68-hav{width:36px!important;height:36px!important;background:#23314a!important;color:#7dd3fc!important}.c68-hname{font-size:14px!important;color:#111827!important}.c68-hsub{font-size:11px!important;color:#6b7280!important}
-.c68-hacts{gap:8px!important}.c68-hbtn{height:32px!important;border-radius:8px!important;background:#ffffff!important;border:1px solid #d1d5db!important;color:#334155!important}.c68-hbtn.red{color:#b91c1c!important;border-color:#fca5a5!important;background:#ffffff!important}
-#c68-msgs{padding:14px 22px!important;background:#f8fafc!important;gap:4px!important}.c68-bub{font-size:13px!important;max-width:min(560px,70%)!important;border-radius:12px!important;padding:8px 12px!important}.c68-bub.sent{background:#fff7ed!important;border-color:#fdba74!important;color:#9a3412!important}.c68-bub.recv{background:#ffffff!important;border-color:#dbe3ef!important;color:#111827!important}.c68-meta{font-size:10px!important;color:#6b7280!important}
-#c68-inp{padding:10px 14px!important;background:#ffffff!important;border-top:1px solid #e5e7eb!important}.c68-inprow{gap:8px!important}.c68-attbtn,.c68-micbtn,.c68-sndbtn{width:38px!important;height:38px!important;border-radius:10px!important}.c68-ta{min-height:38px!important;border-radius:10px!important;background:#ffffff!important;border:1px solid #d1d5db!important;color:#111827!important;font-size:13px!important;padding:9px 12px!important}.c68-sndbtn{background:#16a34a!important;color:white!important}
+#c68-head{height:64px!important;padding:0 18px!important;background:#ffffff!important;border-bottom:1px solid #e5e7eb!important}
+.c68-hav{width:42px!important;height:42px!important;background:#23314a!important;color:#7dd3fc!important}.c68-hname{font-size:15px!important;color:#111827!important}.c68-hsub{font-size:12px!important;color:#6b7280!important}
+.c68-hacts{gap:8px!important}.c68-hbtn{height:34px!important;border-radius:8px!important;background:#ffffff!important;border:1px solid #d1d5db!important;color:#334155!important}.c68-hbtn.red{color:#b91c1c!important;border-color:#fca5a5!important;background:#ffffff!important}
+#c68-msgs{padding:24px 32px!important;background:#f8fafc!important;gap:6px!important}.c68-bub{font-size:13px!important;max-width:min(620px,72%)!important;border-radius:14px!important;padding:10px 14px!important}.c68-bub.sent{background:#fff7ed!important;border-color:#fdba74!important;color:#9a3412!important}.c68-bub.recv{background:#ffffff!important;border-color:#dbe3ef!important;color:#111827!important}.c68-meta{font-size:11px!important;color:#6b7280!important}
+#c68-inp{padding:14px 18px!important;background:#ffffff!important;border-top:1px solid #e5e7eb!important}.c68-inprow{gap:10px!important}.c68-attbtn,.c68-micbtn,.c68-sndbtn{width:42px!important;height:42px!important;border-radius:10px!important}.c68-ta{min-height:42px!important;border-radius:10px!important;background:#ffffff!important;border:1px solid #d1d5db!important;color:#111827!important;font-size:13px!important;padding:10px 12px!important}.c68-sndbtn{background:#16a34a!important;color:white!important}
 #c68-panel{display:none!important}.c68-psec{padding:16px!important}.c68-oppcard,.c68-note{background:#ffffff!important;border-color:#dbe3ef!important}.c68-pval,.c68-oppval{color:#111827!important}
 .c68-error-card{margin:14px!important;padding:14px!important;border:1px solid rgba(248,113,113,.45)!important;background:rgba(127,29,29,.22)!important;border-radius:10px!important;color:#fecaca!important;font-family:inherit!important;line-height:1.45!important}.c68-error-card strong{display:block!important;color:#fff!important;margin-bottom:6px!important}.c68-error-card button{margin-top:10px!important;height:32px!important;border:0!important;border-radius:8px!important;background:#ef4444!important;color:white!important;font-weight:700!important;padding:0 12px!important;cursor:pointer!important}
-<<<<<<< HEAD
-@media (max-width:900px){#chat68{height:calc(100vh - 48px)!important;margin:0!important;border:0!important;border-radius:0!important;max-width:none!important}#c68-sidebar{width:42vw!important;min-width:280px!important}#c68-mid{flex:1 1 auto!important;max-width:none!important;min-width:0!important}#c68-panel{display:none!important}.c68-hacts{display:none!important}#c68-msgs{padding:14px!important}.c68-bub{max-width:86%!important}}
-=======
 @media (max-width:900px){#chat68{height:calc(100vh - 48px)!important;border:0!important}#c68-sidebar{width:42vw!important;min-width:280px!important}#c68-mid{flex:1 1 auto!important;max-width:none!important}#c68-panel{display:none!important}.c68-hacts{display:none!important}#c68-msgs{padding:18px!important}.c68-bub{max-width:86%!important}}
->>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
 </style>
-<script id="chat68-layout-v70-js">
+<script id="chat68-layout-v69-js">
 (function(){
   window.__chat68Reload=function(){location.reload();};
 })();
 </script>`;
-<<<<<<< HEAD
-  if (!patched.includes('chat68-layout-v70')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
-=======
   if (!patched.includes('chat68-layout-v69')) patched = patched.replace('</body>', `${chatLayout}\n</body>`);
->>>>>>> c56c5b8 (Corrige envio do chat com fallback de credenciais)
   patched = patched.replace(
     "if(el) el.innerHTML='<div style=\"padding:12px;font-size:11px;color:#fca5a5;font-family:monospace\">Erro ao carregar conversas: '+esc(window.__chat68LastError||'falha na API')+'</div>';",
-    "if(el) el.innerHTML='<div class=\"c68-error-card\"><strong>NÃ£o foi possÃ­vel carregar as conversas</strong><div>'+esc(window.__chat68LastError||'Falha na API do chat')+'</div><button onclick=\"window.__chat68Reload&&window.__chat68Reload()\">Recarregar chat</button></div>';"
-  );
-  patched = patched.replace(
-    "    if(!r) return;\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    _c68openConv(r.id,user);",
-    "    if(!r){ alert(window.__chat68LastError||'NÃ£o foi possÃ­vel abrir o atendimento.'); return; }\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    if(!CS.convs.some(c=>Number(c.id)===Number(r.id))){\n      CS.convs.unshift(r);\n      CS.filtered=CS.convs;\n      _c68renderList(user);\n    }\n    _c68openConv(r.id,user);"
-  );
-  patched = patched.replace(
-    "  const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);\n  if(msg){",
-    "  const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);\n  if(!msg){\n    if(snd){snd.disabled=false;snd.innerHTML='âž¤';}\n    alert(window.__chat68LastError||'NÃ£o foi possÃ­vel enviar a mensagem.');\n    return;\n  }\n  if(msg){"
+    "if(el) el.innerHTML='<div class=\"c68-error-card\"><strong>Não foi possível carregar as conversas</strong><div>'+esc(window.__chat68LastError||'Falha na API do chat')+'</div><button onclick=\"window.__chat68Reload&&window.__chat68Reload()\">Recarregar chat</button></div>';"
   );
   patched = patched.replace(
     "    if(!r) return;\n    el.value='';\n    _c68closeNewModal();\n    await _c68loadList(user);\n    _c68openConv(r.id,user);",
@@ -481,8 +434,8 @@ html,body{background:#f4f6fb!important;overflow-x:hidden}
   }
 
   window.hardDeleteWhatsQueue=async function(id){
-    if(!confirm('Excluir esta fila definitivamente? Conversas vinculadas ficarÃ£o sem fila.'))return;
-    try{ await whatsappApi('DELETE',\`/api/whatsapp/queues/\${id}/hard\`); if(String(__whatsV68CState.expanded)===String(id))__whatsV68CState.expanded=null; toast('Fila excluÃ­da.'); await loadWhatsV68C(); }
+    if(!confirm('Excluir esta fila definitivamente? Conversas vinculadas ficarão sem fila.'))return;
+    try{ await whatsappApi('DELETE',\`/api/whatsapp/queues/\${id}/hard\`); if(String(__whatsV68CState.expanded)===String(id))__whatsV68CState.expanded=null; toast('Fila excluída.'); await loadWhatsV68C(); }
     catch(e){toast(e.message,'error')}
   }`;
     patched = patched.replace(marker, `${queueFns}\n\n${marker}`);
@@ -509,10 +462,10 @@ async function start() {
   try { await runMigrations(); }
   catch (err) { console.error(`Falha ao preparar banco: ${err.message}`); console.error('O servidor vai iniciar, mas rotas que dependem do schema podem falhar.'); }
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`âœ… Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
-    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'âœ… configurado' : 'âš ï¸  NÃƒO configurado'}`);
-    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? 'âœ… configurado' : 'âš ï¸  usando padrÃ£o (configure nas variÃ¡veis)'}`);
-    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? 'âœ… configurado' : 'âš ï¸  NÃƒO configurado (uploads desativados)'}`);
+    console.log(`✅ Sulnet V1 v68e-chat-visual rodando na porta ${PORT}`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ configurado' : '⚠️  NÃO configurado'}`);
+    console.log(`   JWT_SECRET:   ${process.env.JWT_SECRET !== 'sistema-integrado-sulnet-v1-secret-trocar-nas-variaveis' ? '✅ configurado' : '⚠️  usando padrão (configure nas variáveis)'}`);
+    console.log(`   R2:           ${process.env.R2_ACCOUNT_ID ? '✅ configurado' : '⚠️  NÃO configurado (uploads desativados)'}`);
   });
 }
 

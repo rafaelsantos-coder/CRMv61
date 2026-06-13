@@ -1,6 +1,6 @@
 /**
- * POST /webhook - Recebe callbacks da Z-API.
- * Nao requer autenticacao JWT.
+ * POST /webhook — Recebe callbacks da Z-API.
+ * Não requer autenticação JWT.
  */
 
 const router = require('express').Router();
@@ -93,14 +93,11 @@ router.post('/', async (req, res) => {
 
     const mappedStatus = zapi.mapStatus(payload.status || payload.messageStatus || payload.ack);
     if (mid && mappedStatus) {
-      const hostedMediaUrl = extractMediaUrl(payload, detectMsgType(payload));
       const { rowCount } = await pool.query(
         `UPDATE chat_messages
-         SET status = $1,
-             media_url = COALESCE($4, media_url),
-             raw_payload = COALESCE(raw_payload,'{}'::jsonb) || $3::jsonb
+         SET status = $1, raw_payload = COALESCE(raw_payload,'{}'::jsonb) || $3::jsonb
          WHERE zapi_message_id = $2`,
-        [mappedStatus, mid, JSON.stringify({ lastStatusPayload: payload }), hostedMediaUrl]
+        [mappedStatus, mid, JSON.stringify({ lastStatusPayload: payload })]
       );
       if (payload.fromMe === true && rowCount > 0) {
         await markEvent(evtId);
@@ -154,9 +151,6 @@ router.post('/', async (req, res) => {
        DO UPDATE SET
          conversation_id = EXCLUDED.conversation_id,
          status = EXCLUDED.status,
-         media_url = COALESCE(EXCLUDED.media_url, chat_messages.media_url),
-         caption = COALESCE(EXCLUDED.caption, chat_messages.caption),
-         file_name = COALESCE(EXCLUDED.file_name, chat_messages.file_name),
          raw_payload = EXCLUDED.raw_payload
        RETURNING id`,
       [
@@ -206,30 +200,6 @@ router.post('/', async (req, res) => {
       ]
     );
 
-    if (!conversation.opportunity_id) {
-      const ownerId = conversation.assigned_user_id || assignmentUserId || assignedByRule || null;
-      let leadQueue = queue;
-      if (conversation.queue_id && Number(conversation.queue_id) !== Number(queue?.id || 0)) {
-        const { rows: convQueueRows } = await pool.query(
-          'SELECT id, name FROM attendance_queues WHERE id=$1 LIMIT 1',
-          [conversation.queue_id]
-        ).catch(() => ({ rows: [] }));
-        if (convQueueRows[0]) leadQueue = convQueueRows[0];
-      }
-      const lead = await findOrCreateOpportunityForLead({
-        phone: phone || conversation.phone,
-        clientName: conversation.client_name || (clientName !== phone ? clientName : null),
-        assignedUserId: ownerId,
-        queue: leadQueue,
-      }).catch(() => null);
-      if (lead?.opportunityId) {
-        await pool.query(
-          'UPDATE conversations SET opportunity_id=$2, updated_at=NOW() WHERE id=$1 AND opportunity_id IS NULL',
-          [conversation.id, lead.opportunityId]
-        ).catch(() => {});
-      }
-    }
-
     await markEvent(evtId);
   } catch (err) {
     console.error('[WEBHOOK] Erro ao processar:', err);
@@ -252,127 +222,18 @@ async function resolveAssignmentForIncoming(conversation, queue, suggestedUserId
   if (!queue?.id) return null;
 
   const { rows } = await pool.query(
-    `SELECT
-       EXISTS (
-         SELECT 1
-           FROM queue_users qu
-           JOIN users u ON u.id = qu.user_id
-          WHERE qu.queue_id=$1 AND qu.user_id=$2 AND qu.is_active=true AND u.active=true
-       ) AS in_queue,
-       EXISTS (
-         SELECT 1 FROM chat_agent_logins al
-          WHERE al.queue_id=$1 AND al.user_id=$2 AND al.is_logged_in=true
-            AND al.last_seen_at > NOW() - INTERVAL '2 minutes'
-       ) AS logged_in`,
+    `SELECT 1
+       FROM queue_users qu
+       JOIN users u ON u.id = qu.user_id
+      WHERE qu.queue_id=$1
+        AND qu.user_id=$2
+        AND qu.is_active=true
+        AND u.active=true
+      LIMIT 1`,
     [queue.id, currentUserId]
-  ).catch(() => ({ rows: [{ in_queue: true, logged_in: true }] }));
-  const owner = rows[0] || { in_queue: true, logged_in: true };
+  ).catch(() => ({ rows: [] }));
 
-  // Dono continua valido: esta na fila e logado no chat.
-  if (owner.in_queue && owner.logged_in) return null;
-
-  // Dono fora da fila ou deslogado: repassa apenas se o sugerido esta logado,
-  // para a conversa nao ficar pulando entre atendentes deslogados.
-  if (nextUserId && nextUserId !== currentUserId) {
-    const { rows: nextRows } = await pool.query(
-      `SELECT 1 FROM chat_agent_logins
-        WHERE queue_id=$1 AND user_id=$2 AND is_logged_in=true
-          AND last_seen_at > NOW() - INTERVAL '2 minutes' LIMIT 1`,
-      [queue.id, nextUserId]
-    ).catch(() => ({ rows: [] }));
-    if (nextRows.length) return nextUserId;
-  }
-
-  // Ninguem logado para assumir: mantem com o dono se ele ainda esta na fila.
-  return owner.in_queue ? null : (nextUserId || null);
-}
-
-/**
- * Garante a lead no CRM para um contato de WhatsApp:
- * - se ja existe oportunidade para o telefone, reaproveita (e herda o vendedor);
- * - senao, cria a lead na PRIMEIRA ETAPA do funil do vendedor responsavel
- *   (user_funnel_access), com origem = nome da fila, nome e telefone do contato.
- * - fallback: primeiro funil ativo do sistema, se o vendedor nao tem funil.
- */
-async function findOrCreateOpportunityForLead({ phone, clientName, assignedUserId, queue }) {
-  const variants = phoneVariants(phone);
-  if (variants.length) {
-    const { rows } = await pool.query(
-      `SELECT id, assigned_user_id FROM opportunities
-       WHERE client_phone = ANY($1::text[]) OR client_cpf = ANY($1::text[])
-       ORDER BY created_at DESC LIMIT 1`,
-      [variants]
-    ).catch(() => ({ rows: [] }));
-    if (rows[0]) {
-      return { opportunityId: rows[0].id, assignedUserId: rows[0].assigned_user_id || assignedUserId || null, created: false };
-    }
-  }
-
-  let funnelStage = null;
-  if (assignedUserId) {
-    const { rows } = await pool.query(
-      `SELECT f.id AS funnel_id, s.id AS stage_id
-         FROM user_funnel_access ufa
-         JOIN funnels f ON f.id = ufa.funnel_id AND f.active = true
-         JOIN stages s ON s.funnel_id = f.id
-        WHERE ufa.user_id = $1
-          AND COALESCE(s.is_won, false) = false
-          AND COALESCE(s.is_lost, false) = false
-        ORDER BY f.sort_order ASC, f.id ASC, s.sort_order ASC, s.id ASC
-        LIMIT 1`,
-      [assignedUserId]
-    ).catch(() => ({ rows: [] }));
-    funnelStage = rows[0] || null;
-  }
-  if (!funnelStage) {
-    const { rows } = await pool.query(
-      `SELECT f.id AS funnel_id, s.id AS stage_id
-         FROM funnels f
-         JOIN stages s ON s.funnel_id = f.id
-        WHERE f.active = true
-          AND COALESCE(s.is_won, false) = false
-          AND COALESCE(s.is_lost, false) = false
-        ORDER BY f.sort_order ASC, s.sort_order ASC
-        LIMIT 1`
-    ).catch(() => ({ rows: [] }));
-    funnelStage = rows[0] || null;
-  }
-  if (!funnelStage) return { opportunityId: null, assignedUserId: assignedUserId || null, created: false };
-
-  let originId = null;
-  const originName = String(queue?.name || 'WhatsApp').trim();
-  if (originName) {
-    const { rows: existing } = await pool.query(
-      'SELECT id FROM origins WHERE LOWER(name) = LOWER($1) LIMIT 1',
-      [originName]
-    ).catch(() => ({ rows: [] }));
-    if (existing[0]) {
-      originId = existing[0].id;
-    } else {
-      const { rows: created } = await pool.query(
-        'INSERT INTO origins (name) VALUES ($1) RETURNING id',
-        [originName]
-      ).catch(() => ({ rows: [] }));
-      originId = created[0]?.id || null;
-    }
-  }
-
-  const { rows: newOpp } = await pool.query(
-    `INSERT INTO opportunities
-       (funnel_id, stage_id, assigned_user_id, origin_id, client_name, client_phone, status, notes, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,'open',$7,NOW(),NOW())
-     RETURNING id`,
-    [
-      funnelStage.funnel_id,
-      funnelStage.stage_id,
-      assignedUserId || null,
-      originId,
-      clientName || zapiPhone(phone),
-      zapiPhone(phone),
-      `Lead criada automaticamente via WhatsApp (fila: ${queue?.name || 'sem fila'}) em ${new Date().toLocaleString('pt-BR')}.`,
-    ]
-  );
-  return { opportunityId: newOpp[0].id, assignedUserId: assignedUserId || null, created: true };
+  return rows.length ? null : (nextUserId || null);
 }
 
 async function findOrCreateConversation({ phone, aliases, clientName, payload, apiInstance, queue, assignedByRule }) {
@@ -440,20 +301,50 @@ async function findOrCreateConversation({ phone, aliases, clientName, payload, a
   const contact = apiInstance ? await zapi.fetchContact(apiInstance, phoneToSave).catch(() => null) : null;
   const finalName = contact?.name || clientName || phoneToSave;
 
-  // A criacao da lead nunca pode impedir o registro da mensagem.
-  let lead = { opportunityId: null, assignedUserId: assignedByRule || null };
-  try {
-    lead = await findOrCreateOpportunityForLead({
-      phone: phoneToSave,
-      clientName: finalName,
-      assignedUserId: assignedByRule || null,
-      queue,
-    });
-  } catch (err) {
-    console.error('[WEBHOOK LEAD]', err.message);
+  let opportunityId = null;
+  let assignedUserId = assignedByRule || null;
+  const variants = phoneVariants(phoneToSave);
+
+  const { rows: existingOpps } = await pool.query(
+    `SELECT id, assigned_user_id FROM opportunities
+     WHERE client_phone = ANY($1::text[]) OR client_cpf = ANY($1::text[])
+     ORDER BY created_at DESC LIMIT 1`,
+    [variants]
+  ).catch(() => ({ rows: [] }));
+
+  if (existingOpps[0]) {
+    opportunityId = existingOpps[0].id;
+    assignedUserId = existingOpps[0].assigned_user_id || assignedUserId;
   }
-  const opportunityId = lead.opportunityId;
-  const assignedUserId = lead.assignedUserId;
+
+  if (!opportunityId) {
+    const { rows: funnelRows } = await pool.query(
+      `SELECT f.id AS funnel_id, s.id AS stage_id
+       FROM funnels f
+       JOIN stages s ON s.funnel_id = f.id
+       WHERE f.active = true
+       ORDER BY f.sort_order ASC, s.sort_order ASC
+       LIMIT 1`
+    ).catch(() => ({ rows: [] }));
+
+    if (funnelRows[0]) {
+      const { rows: newOpp } = await pool.query(
+        `INSERT INTO opportunities
+           (funnel_id, stage_id, assigned_user_id, client_name, client_phone, status, notes, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,'open',$6,NOW(),NOW())
+         RETURNING id`,
+        [
+          funnelRows[0].funnel_id,
+          funnelRows[0].stage_id,
+          assignedUserId,
+          finalName,
+          phoneToSave,
+          `Oportunidade criada automaticamente via WhatsApp em ${new Date().toLocaleString('pt-BR')}.`,
+        ]
+      );
+      opportunityId = newOpp[0].id;
+    }
+  }
 
   const { rows: newConv } = await pool.query(
     `INSERT INTO conversations
