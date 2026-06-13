@@ -98,6 +98,8 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   .social-login small{display:block;color:var(--muted);margin-top:2px}
   .social-login.disabled{opacity:.45;cursor:not-allowed}
   .social-login.disabled:hover{box-shadow:none;transform:none}
+  .linkish{border:0;background:transparent;padding:0;color:var(--orange);cursor:pointer;font:inherit}
+  .linkish:hover{text-decoration:underline}
 
 
   .view-switch{display:inline-flex;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
@@ -1371,7 +1373,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   function route(){const h=location.hash.replace(/^#\/?/,'');const p=h.split('/')[0]||'crm';ui.module=p;}
   window.addEventListener('hashchange',()=>{route();render()});
 
-  function render(){route();const user=getUser();if(!user)return renderLogin();if(!allowedModule(user,ui.module)){ui.module='crm';location.hash='#/crm';return}renderLayout(user)}
+  function render(){route();const user=getUser();if(!user)return renderLogin();if(user.mustChangePassword)return renderFirstAccess(user);if(!allowedModule(user,ui.module)){ui.module='crm';location.hash='#/crm';return}renderLayout(user)}
   function renderLogin(){document.getElementById('app').innerHTML=`
     <div class="login">
       <section class="login-brand">
@@ -1384,6 +1386,26 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
           <form id="loginForm"><div class="field"><label>Usuário</label><input name="username" autocomplete="username" required placeholder="ex: rafael.teste"></div><div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="••••••••"></div><button class="btn btn-primary w100" type="submit">Entrar</button></form>
           <p class="small mt14 mb0">Acesso rápido para testes:</p><div class="demo-users"><button data-demo="admin">Admin</button><button data-demo="bko">BKO</button><button data-demo="gerencia">Gerência</button><button data-demo="rafael.teste">Vendedor</button></div>
           <p class="small mt14">Senhas: admin123, bko123, gerencia123 ou comercial123.</p>
+        </div>
+      </section>
+    </div>`}
+  function renderFirstAccess(user){document.getElementById('app').innerHTML=`
+    <div class="login">
+      <section class="login-brand">
+        <div><img class="login-logo" src="${logo}" alt="Sulnet"><div class="login-title"><h1>Sistema Integrado<br><span>Sulnet V1</span></h1><p>Por segurança, no primeiro acesso é obrigatório confirmar o usuário autenticado e definir uma nova senha pessoal.</p></div></div>
+        <div class="login-foot">Sistema Integrado Sulnet V1</div>
+      </section>
+      <section class="login-panel">
+        <div class="login-card">
+          <h2>Primeiro acesso</h2><p>Usuário autenticado: <strong>${esc(user.username)}</strong></p>
+          <form id="firstAccessForm">
+            <div class="field"><label>Usuário</label><input name="username" value="${esc(user.username)}" autocomplete="username" required></div>
+            <div class="field"><label>Senha atual</label><input name="currentPassword" type="password" autocomplete="current-password" required placeholder="digite sua senha atual"></div>
+            <div class="field"><label>Nova senha</label><input name="newPassword" type="password" autocomplete="new-password" required placeholder="mínimo 8 caracteres"></div>
+            <div class="field"><label>Confirmar nova senha</label><input name="confirmPassword" type="password" autocomplete="new-password" required placeholder="repita a nova senha"></div>
+            <button class="btn btn-primary w100" type="submit">Salvar nova senha e entrar</button>
+          </form>
+          <p class="small mt14 mb0"><button class="linkish" type="button" data-action="logout">Sair e voltar ao login</button></p>
         </div>
       </section>
     </div>`}
@@ -3197,7 +3219,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   document.addEventListener('dragover',e=>{const dz=e.target.closest('[data-drop-stage]');if(dz){e.preventDefault();dz.classList.add('dragover')}});
   document.addEventListener('dragleave',e=>{const dz=e.target.closest('[data-drop-stage]');if(dz)dz.classList.remove('dragover')});
   document.addEventListener('drop',e=>{const dz=e.target.closest('[data-drop-stage]');if(!dz)return;e.preventDefault();dz.classList.remove('dragover');const id=Number(e.dataTransfer.getData('text/plain'));const st=getState();const opp=st.opportunities.find(o=>o.id===id);if(opp){const u=getUser();const targetStage=Number(dz.dataset.dropStage);const targetFunnel=st.stages.find(s=>s.id===targetStage)?.funnelId||opp.funnelId;if(!hasFunnelAccess(st,u,targetFunnel)){toast('Você não tem acesso ao funil de destino.','error');return;}const wonStage=getWonStage(st,targetFunnel);if(wonStage&&Number(targetStage)===Number(wonStage.id)){toast('Para levar a oportunidade para GANHO, abra a oportunidade e use o botão Marcar Ganho. O sistema validará todos os campos obrigatórios.','warn');return;}const moveCheck=validateOpportunityMove(st,opp,targetStage);if(!moveCheck.ok){toast(moveCheck.message,'error');return;}opp.stageId=targetStage;opp.funnelId=targetFunnel;opp.updatedAt=now();opp.history=opp.history||[];opp.history.push({at:now(),actor:u.name,action:'Movida para etapa '+stageName(st,opp.stageId)});setState(st);render();toast('Oportunidade movida.')}});
-  document.addEventListener('submit',async e=>{e.preventDefault();try{const id=e.target.id;if(id==='loginForm')submitLogin(e.target);if(id==='oppForm')await submitOpp(e.target);if(id==='creditForm')submitCredit(e.target);if(id==='analysisForm')submitBkoAnalysis(e.target);if(id==='creditRuleForm')submitCreditRule(e.target);if(id==='contestForm')submitContest(e.target);if(id==='decisionForm')submitDecision(e.target);if(id==='outcomeForm')submitOutcome(e.target);if(id==='adminUserForm')adminCreateUser(e.target);if(id==='adminEditUserForm')adminUpdateUser(e.target);if(id==='adminFunnelForm')adminCreateFunnel(e.target);if(id==='adminEditFunnelForm')adminUpdateFunnel(e.target);if(id==='adminStageForm')adminCreateStage(e.target);if(id==='adminEditStageForm')adminUpdateStage(e.target);if(id==='adminOriginForm')adminCreateOrigin(e.target);if(id==='adminEditOriginForm')adminUpdateOrigin(e.target);if(id==='adminCategoryForm')adminCreateProductCategory(e.target);if(id==='adminEditCategoryForm')adminUpdateCategory(e.target);if(id==='adminPlanForm')adminCreatePlan(e.target);if(id==='adminEditPlanForm')adminUpdatePlan(e.target);if(id==='adminTagForm')adminCreateTag(e.target);if(id==='adminEditTagForm')adminUpdateTag(e.target);if(id==='adminOutcomeForm')adminCreateOutcome(e.target);if(id==='adminEditOutcomeForm')adminUpdateOutcomeReason(e.target);if(id==='agendaEventForm')submitAgendaEvent(e.target);if(id==='googleAgendaForm')submitGoogleAgenda(e.target)}catch(err){console.error(err);toast('Não foi possível salvar. Detalhe técnico: '+(err?.message||err),'error')}});
+  document.addEventListener('submit',async e=>{e.preventDefault();try{const id=e.target.id;if(id==='loginForm')submitLogin(e.target);if(id==='firstAccessForm')submitFirstAccess(e.target);if(id==='oppForm')await submitOpp(e.target);if(id==='creditForm')submitCredit(e.target);if(id==='analysisForm')submitBkoAnalysis(e.target);if(id==='creditRuleForm')submitCreditRule(e.target);if(id==='contestForm')submitContest(e.target);if(id==='decisionForm')submitDecision(e.target);if(id==='outcomeForm')submitOutcome(e.target);if(id==='adminUserForm')adminCreateUser(e.target);if(id==='adminEditUserForm')adminUpdateUser(e.target);if(id==='adminFunnelForm')adminCreateFunnel(e.target);if(id==='adminEditFunnelForm')adminUpdateFunnel(e.target);if(id==='adminStageForm')adminCreateStage(e.target);if(id==='adminEditStageForm')adminUpdateStage(e.target);if(id==='adminOriginForm')adminCreateOrigin(e.target);if(id==='adminEditOriginForm')adminUpdateOrigin(e.target);if(id==='adminCategoryForm')adminCreateProductCategory(e.target);if(id==='adminEditCategoryForm')adminUpdateCategory(e.target);if(id==='adminPlanForm')adminCreatePlan(e.target);if(id==='adminEditPlanForm')adminUpdatePlan(e.target);if(id==='adminTagForm')adminCreateTag(e.target);if(id==='adminEditTagForm')adminUpdateTag(e.target);if(id==='adminOutcomeForm')adminCreateOutcome(e.target);if(id==='adminEditOutcomeForm')adminUpdateOutcomeReason(e.target);if(id==='agendaEventForm')submitAgendaEvent(e.target);if(id==='googleAgendaForm')submitGoogleAgenda(e.target)}catch(err){console.error(err);toast('Não foi possível salvar. Detalhe técnico: '+(err?.message||err),'error')}});
 
   function fd(form){return Object.fromEntries(new FormData(form).entries())}
   function fdAll(form,name){return [...new FormData(form).getAll(name)].map(Number).filter(Boolean)}
@@ -3357,7 +3379,24 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     }
     return true;
   }
-  function submitLogin(form){const data=fd(form);const st=getState();const u=st.users.find(x=>x.username===data.username&&x.password===data.password&&x.active);if(!u){toast('Usuário ou senha inválidos.','error');return}setUser(u.id);location.hash='#/crm';render()}
+  function submitLogin(form){const data=fd(form);const st=getState();const login=String(data.username||'').trim().toLowerCase();const u=st.users.find(x=>String(x.username||'').toLowerCase()===login&&x.password===data.password&&x.active);if(!u){toast('Usuário ou senha inválidos.','error');return}setUser(u.id);location.hash=u.mustChangePassword?'#/login/primeiro-acesso':'#/crm';render()}
+  function submitFirstAccess(form){
+    const data=fd(form);const st=getState();const user=getUser();
+    if(!user){toast('Sua sessão expirou. Faça login novamente.','error');render();return}
+    const username=String(data.username||'').trim().toLowerCase();
+    if(username!==String(user.username||'').toLowerCase()){toast('Confirme o mesmo usuário autenticado para continuar.','error');return}
+    if(data.currentPassword!==user.password){toast('Senha atual incorreta.','error');return}
+    if(String(data.newPassword||'').length<8){toast('A nova senha deve ter no mínimo 8 caracteres.','error');return}
+    if(data.newPassword!==data.confirmPassword){toast('A confirmação da nova senha não confere.','error');return}
+    const target=st.users.find(x=>Number(x.id)===Number(user.id));
+    if(!target){toast('Usuário não encontrado.','error');return}
+    target.password=data.newPassword;
+    target.mustChangePassword=false;
+    setState(st);
+    location.hash='#/crm';
+    render();
+    toast('Senha atualizada com sucesso.');
+  }
   function fileNameFromForm(form,fileInputName,currentInputName){const file=form.querySelector(`input[name="${fileInputName}"]`)?.files?.[0];return file?.name||form.querySelector(`input[name="${currentInputName}"]`)?.value||''
     const centralNuvemBox=form.querySelector('[data-product-section="centralNuvem"]');
     const isCentralNuvem=normName(catName)==='CENTRAL EM NUVEM';
@@ -4407,6 +4446,11 @@ async function _c68doSend(){
     :{type:'text',text};
 
   const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);
+  if(!msg){
+    if(snd){snd.disabled=false;snd.innerHTML='➤';}
+    alert(window.__chat68LastError||'Nao foi possivel enviar a mensagem.');
+    return;
+  }
   if(msg){
     // Adiciona mensagem enviada imediatamente na tela
     const box=document.getElementById('c68-msgs');
