@@ -35,6 +35,50 @@ const { authMiddleware } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = 'v68i-troca-endereco-admin-bootstrap';
+const DEFAULT_LOGIN_PASSWORD = 'comercial123';
+const DEFAULT_USERS = [
+  ['Administrador Sulnet', 'admin', 'admin', 'Santa Rosa', 'admin@sulnet.com.br'],
+  ['Backoffice Comercial', 'bko', 'bko', 'Santa Rosa', 'bko@sulnet.com.br'],
+  ['Gerencia Comercial', 'gerencia', 'gerencia', 'Santa Rosa', 'gerencia@sulnet.com.br'],
+  ['Rafael Teste', 'rafael.teste', 'vendedor', 'Santa Rosa', 'rafael@sulnet.com.br'],
+  ['Andressa Reus', 'andressa.reus', 'vendedor', 'Cerro Largo', 'andressa@sulnet.com.br'],
+  ['Gabrieli Borth Padilha', 'gabrieli.padilha', 'vendedor', 'Santo Angelo', 'gabrieli@sulnet.com.br'],
+  ['Jenifer Garcia Dutra', 'jenifer.dutra', 'vendedor', 'Santa Rosa', 'jenifer@sulnet.com.br'],
+  ['Daniel Augusto Strieder Hubner', 'daniel.hubner', 'vendedor', 'Entre-Ijuis', 'daniel@sulnet.com.br'],
+];
+
+async function ensureDefaultUsersAccess() {
+  if (!process.env.DATABASE_URL) return;
+
+  const defaultHash = await bcrypt.hash(DEFAULT_LOGIN_PASSWORD, 12);
+
+  for (const [name, username, role, city, email] of DEFAULT_USERS) {
+    await pool.query(
+      `
+        INSERT INTO users (
+          name, username, password_hash, role, city, email, active, must_change_password, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, true, true, NOW(), NOW())
+        ON CONFLICT (username)
+        DO UPDATE SET
+          password_hash = CASE
+            WHEN users.must_change_password = true THEN EXCLUDED.password_hash
+            ELSE users.password_hash
+          END,
+          role = EXCLUDED.role,
+          city = EXCLUDED.city,
+          email = EXCLUDED.email,
+          active = true,
+          must_change_password = CASE
+            WHEN users.must_change_password = true THEN true
+            ELSE users.must_change_password
+          END,
+          updated_at = NOW()
+      `,
+      [name, username, defaultHash, role, city, email]
+    );
+  }
+}
 
 async function ensureAdminLogin() {
   const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
@@ -150,6 +194,12 @@ async function startServer() {
     await runMigrations();
   } catch (err) {
     console.error('[BOOT] Falha ao aplicar migrations automaticamente:', err.message);
+  }
+
+  try {
+    await ensureDefaultUsersAccess();
+  } catch (err) {
+    console.error('[BOOT] Nao foi possivel alinhar usuarios padrao:', err.message);
   }
 
   try {
