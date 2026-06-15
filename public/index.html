@@ -3846,7 +3846,13 @@ function fibraInfoHtml(st,opp={}){
       if(!response.ok)throw new Error(payload?.error||'Usuário ou senha inválidos.');
       if(!payload?.token||!payload?.user)throw new Error('Resposta de autenticação inválida.');
       sessionStorage.setItem(AUTH_TOKEN_KEY,payload.token);
-      const profile=await api('GET','/api/auth/me');
+      const profileResponse=await fetch('/api/auth/me',{
+        method:'GET',
+        headers:buildAuthHeaders()
+      });
+      const profilePayload=await profileResponse.json().catch(()=>null);
+      if(!profileResponse.ok)throw new Error(profilePayload?.error||'Não foi possível carregar o perfil do usuário.');
+      const profile=profilePayload;
       const user=syncAuthenticatedUser({...payload.user,funnelAccessIds:profile?.funnel_access_ids||profile?.funnelAccessIds||[]});
       setUser(user.id);
       if(payload.user.mustChangePassword){
