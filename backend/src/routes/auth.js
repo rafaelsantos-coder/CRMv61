@@ -17,8 +17,10 @@ router.post('/login', async (req, res) => {
 
     const { rows } = await pool.query(
       `SELECT id, name, username, password_hash, role, city, email, active, must_change_password
-       FROM users WHERE username = $1`,
-      [username.trim().toLowerCase()]
+       FROM users
+       WHERE LOWER(TRIM(username)) = LOWER(TRIM($1))
+       LIMIT 1`,
+      [username]
     );
 
     const user = rows[0];
