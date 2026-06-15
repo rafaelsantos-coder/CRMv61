@@ -729,6 +729,24 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
         "name": "VPN",
         "active": true,
         "sortOrder": 15
+      },
+      {
+        "id": 16,
+        "name": "WIFI ADICIONAL",
+        "active": true,
+        "sortOrder": 16
+      },
+      {
+        "id": 17,
+        "name": "TROCA DE TITULAR",
+        "active": true,
+        "sortOrder": 17
+      },
+      {
+        "id": 18,
+        "name": "TROCA DE ENDERECO",
+        "active": true,
+        "sortOrder": 18
       }
     ];
     const plans=[
@@ -1283,6 +1301,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     if(!st.tags.length){st.tags=clone(base.tags||[]);changed=true;}
     if(!st.origins.length){st.origins=clone(base.origins||[]);changed=true;}
     if(!st.outcomeReasons.length){st.outcomeReasons=clone(base.outcomeReasons||[]);changed=true;}
+    ensureByName('products',(base.products||[]).filter(item=>['VPN','WIFI ADICIONAL','TROCA DE TITULAR','TROCA DE ENDERECO'].includes(normName(item.name))));
     // Normaliza estruturas antigas para evitar tela em branco.
     st.users.forEach(u=>{if(u.active===undefined)u.active=true;if(!u.password)u.password='comercial123';if(!Array.isArray(u.funnelAccessIds)||!u.funnelAccessIds.length){u.funnelAccessIds=defaultFunnelAccessForUser(st,u);changed=true;}else{const clean=normalizeIdArray(u.funnelAccessIds);if(String(clean)!==String(u.funnelAccessIds)){u.funnelAccessIds=clean;changed=true;}}});
     st.funnels.forEach((f,i)=>{if(f.active===undefined)f.active=true;if(!f.sortOrder)f.sortOrder=i+1});
