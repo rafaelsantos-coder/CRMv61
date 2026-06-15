@@ -62,6 +62,8 @@ async function assignUserForQueue(queueId) {
   if (!qRows.length) return null;
 
   const queue = qRows[0];
+  if (queue.distribution_type === 'manual') return null;
+
   const { rows: users } = await pool.query(
     `SELECT u.id, u.name
      FROM queue_users qu
@@ -75,10 +77,6 @@ async function assignUserForQueue(queueId) {
   );
 
   if (!users.length) return null;
-
-  // O chat operacional nao tem uma caixa publica por fila. Mesmo em modo manual,
-  // a conversa precisa ter um responsavel para nao ficar invisivel.
-  if (queue.distribution_type === 'manual') return users[0].id;
 
   if (queue.distribution_type === 'least_open') {
     const { rows } = await pool.query(

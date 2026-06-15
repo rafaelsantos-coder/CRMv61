@@ -336,42 +336,4 @@ router.post('/conversations/:id/transfer', async (req, res) => {
   }
 });
 
-// ── RESET DO CHAT (apenas admin/gerencia) ────────────────────────────────────
-// Zera conversas, mensagens, aliases, transferencias, eventos de webhook e as
-// leads criadas automaticamente pelo WhatsApp. Uso: abrir no navegador
-// /api/chat-admin/reset-conversations?confirm=ZERAR (logado como admin).
-async function resetChatData(req, res) {
-  try {
-    const confirm = String(req.query.confirm || req.body?.confirm || '');
-    if (confirm !== 'ZERAR') {
-      return res.status(400).json({
-        error: 'Confirmacao necessaria.',
-        howTo: 'Chame novamente com ?confirm=ZERAR para apagar todas as conversas do chat.',
-      });
-    }
-
-    const counts = {};
-    const del = async (label, sql) => {
-      const r = await pool.query(sql).catch(() => ({ rowCount: 0 }));
-      counts[label] = r.rowCount || 0;
-    };
-
-    await del('mensagens', 'DELETE FROM chat_messages');
-    await del('aliases', 'DELETE FROM chat_contact_aliases');
-    await del('transferencias', 'DELETE FROM chat_transfers');
-    await del('conversas', 'DELETE FROM conversations');
-    await del('eventos_webhook', 'DELETE FROM webhook_events');
-    await del('leads_automaticas', `DELETE FROM opportunities
-      WHERE notes LIKE 'Lead criada automaticamente via WhatsApp%'
-         OR notes LIKE 'Oportunidade criada automaticamente via WhatsApp%'`);
-
-    res.json({ ok: true, apagado: counts, aviso: 'Conversas do chat zeradas. Filas, instancias Z-API e logins de atendentes foram mantidos.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao zerar chat: ' + err.message });
-  }
-}
-
-router.get('/reset-conversations', resetChatData);
-router.post('/reset-conversations', resetChatData);
-
 module.exports = router;

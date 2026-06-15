@@ -98,8 +98,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   .social-login small{display:block;color:var(--muted);margin-top:2px}
   .social-login.disabled{opacity:.45;cursor:not-allowed}
   .social-login.disabled:hover{box-shadow:none;transform:none}
-  .linkish{border:0;background:transparent;padding:0;color:var(--orange);cursor:pointer;font:inherit}
-  .linkish:hover{text-decoration:underline}
 
 
   .view-switch{display:inline-flex;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
@@ -1373,7 +1371,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   function route(){const h=location.hash.replace(/^#\/?/,'');const p=h.split('/')[0]||'crm';ui.module=p;}
   window.addEventListener('hashchange',()=>{route();render()});
 
-  function render(){route();const user=getUser();if(!user)return renderLogin();if(user.mustChangePassword)return renderFirstAccess(user);if(!allowedModule(user,ui.module)){ui.module='crm';location.hash='#/crm';return}renderLayout(user)}
+  function render(){route();const user=getUser();if(!user)return renderLogin();if(!allowedModule(user,ui.module)){ui.module='crm';location.hash='#/crm';return}renderLayout(user)}
   function renderLogin(){document.getElementById('app').innerHTML=`
     <div class="login">
       <section class="login-brand">
@@ -1386,26 +1384,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
           <form id="loginForm"><div class="field"><label>Usuário</label><input name="username" autocomplete="username" required placeholder="ex: rafael.teste"></div><div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="••••••••"></div><button class="btn btn-primary w100" type="submit">Entrar</button></form>
           <p class="small mt14 mb0">Acesso rápido para testes:</p><div class="demo-users"><button data-demo="admin">Admin</button><button data-demo="bko">BKO</button><button data-demo="gerencia">Gerência</button><button data-demo="rafael.teste">Vendedor</button></div>
           <p class="small mt14">Senhas: admin123, bko123, gerencia123 ou comercial123.</p>
-        </div>
-      </section>
-    </div>`}
-  function renderFirstAccess(user){document.getElementById('app').innerHTML=`
-    <div class="login">
-      <section class="login-brand">
-        <div><img class="login-logo" src="${logo}" alt="Sulnet"><div class="login-title"><h1>Sistema Integrado<br><span>Sulnet V1</span></h1><p>Por segurança, no primeiro acesso é obrigatório confirmar o usuário autenticado e definir uma nova senha pessoal.</p></div></div>
-        <div class="login-foot">Sistema Integrado Sulnet V1</div>
-      </section>
-      <section class="login-panel">
-        <div class="login-card">
-          <h2>Primeiro acesso</h2><p>Usuário autenticado: <strong>${esc(user.username)}</strong></p>
-          <form id="firstAccessForm">
-            <div class="field"><label>Usuário</label><input name="username" value="${esc(user.username)}" autocomplete="username" required></div>
-            <div class="field"><label>Senha atual</label><input name="currentPassword" type="password" autocomplete="current-password" required placeholder="digite sua senha atual"></div>
-            <div class="field"><label>Nova senha</label><input name="newPassword" type="password" autocomplete="new-password" required placeholder="mínimo 8 caracteres"></div>
-            <div class="field"><label>Confirmar nova senha</label><input name="confirmPassword" type="password" autocomplete="new-password" required placeholder="repita a nova senha"></div>
-            <button class="btn btn-primary w100" type="submit">Salvar nova senha e entrar</button>
-          </form>
-          <p class="small mt14 mb0"><button class="linkish" type="button" data-action="logout">Sair e voltar ao login</button></p>
         </div>
       </section>
     </div>`}
@@ -1708,26 +1686,22 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
   window.saveWhatsZapiConfig=async function(id){
     const q=__whatsV68CState.queues.find(x=>String(x.id)===String(id));
-    if(!q)return;
     const instanceId=document.getElementById('zapi-instance-id')?.value?.trim()||'';
     const token=document.getElementById('zapi-token')?.value?.trim()||'';
     const clientToken=document.getElementById('zapi-client-token')?.value?.trim()||'';
     // phoneNumber é obtido automaticamente via test-status
-    const hasSavedToken=!!(q.api_instance_id&&q.instance_id);
-    if(!instanceId){toast('Informe ID da instância.','error');return}
-    if(!token&&!hasSavedToken){toast('Informe o token na primeira integração. Depois ele fica salvo.','error');return}
+    if(!instanceId||!token){toast('Informe ID da instância e token.','error');return}
     try{
-      const payload={
+      const saved=await whatsappApi('PATCH',`/api/whatsapp/queues/${id}`,{
         name:q.name,
         queueType:'zapi',
         instanceId,
+        token,
+        clientToken,
         testConnection:true,
         isActive:true
-      };
-      if(token)payload.token=token;
-      if(clientToken)payload.clientToken=clientToken;
-      const saved=await whatsappApi('PATCH',`/api/whatsapp/queues/${id}`,payload);
-      toast(saved.health&&saved.health.connected?'Fila conectada e sincronizada.':'Credenciais salvas. O sistema vai manter a fila monitorada.');
+      });
+      toast('Conexão Z-API salva e verificada.');
       await loadWhatsV68C();
       __whatsV68CState.expanded=saved.id;
     }catch(e){toast(e.message,'error')}
@@ -1736,7 +1710,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   window.testWhatsQueueStatus=async function(id){
     try{
       const r=await whatsappApi('POST',`/api/whatsapp/queues/${id}/test-status`,{});
-      toast(r.connected?'Instância conectada.':'Sincronização feita. A fila continuará em monitoramento.');
+      toast(r.connected?'Instância conectada.':'Instância desconectada.');
       await loadWhatsV68C();
     }catch(e){toast(e.message,'error')}
   }
@@ -1744,7 +1718,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   window.registerWhatsQueueWebhook=async function(id){
     try{
       const r=await whatsappApi('POST',`/api/whatsapp/queues/${id}/register-webhook`,{});
-      toast(r.registered?'Webhook sincronizado: '+r.webhookUrl:'Webhook em monitoramento. O sistema tentará novamente.');
+      toast('Webhook registrado: '+r.webhookUrl);
       await loadWhatsV68C();
     }catch(e){toast(e.message,'error')}
   }
@@ -1902,8 +1876,8 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
           <input id="zapi-phone-number" value="${esc(q.phone_number||'')}" readonly
             placeholder="Preenchido automaticamente ao testar a conexão"
             style="background:#f5f5f5;color:${q.phone_number?'#222':'#999'};font-family:monospace;cursor:default"
-            title="O número é obtido automaticamente da Z-API ao sincronizar">
-          ${q.phone_number?'':'<small style="color:#888;font-size:11px">Clique em <strong>Sincronizar agora</strong> para obter o número automaticamente</small>'}
+            title="O número é obtido automaticamente da Z-API ao clicar em Testar status">
+          ${q.phone_number?'':'<small style="color:#888;font-size:11px">Clique em <strong>Testar status</strong> para obter o número automaticamente</small>'}
         </div>
       </div>
       ${zapiCredentialCardV68C(q)}
@@ -1911,21 +1885,15 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   }
 
   function zapiCredentialCardV68C(q){
-    const origin=location.hostname&&location.hostname.includes('railway.app')?`https://${location.host}`:(location.origin||'https://crmv61-production.up.railway.app');
-    const webhook=origin.replace(/\/$/,'')+'/webhook';
-    const statusText=String(q.server_status||q.api_status||'').toLowerCase();
-    const connected=statusText.includes('autenticado')||statusText==='connected'||statusText==='conectado';
-    const hasCreds=!!(q.api_instance_id||q.instance_id);
-    const monitoring=hasCreds&&!connected;
-    const statusTitle=connected?'Instância conectada/autenticada':(monitoring?'Credenciais salvas - monitorando reconexão':'Instância ainda não configurada');
-    const statusHint=connected?'celular online e webhook monitorado':(monitoring?'o sistema continuará testando e registrando o webhook':'preencha os dados uma vez para salvar');
+    const webhook=(location.origin||'https://crmv68i-troca-enderecouction-56bc.up.railway.app')+'/webhook';
+    const connected=String(q.server_status||q.api_status||'').toLowerCase().includes('conect')||String(q.server_status||'').toLowerCase().includes('autenticado');
     return `<div class="zapi-config-card" style="margin-top:18px">
       <div class="zapi-config-title">🔑 Credenciais da instância Z-API</div>
       <div class="zapi-status-card">
-        <div class="zapi-status-icon">${connected?'✓':(monitoring?'↻':'!')}</div>
+        <div class="zapi-status-icon">${connected?'✓':'!'}</div>
         <div>
-          <div style="font-weight:900;color:#f1fff7">${statusTitle}</div>
-          <div style="font-family:monospace;font-size:12px;color:#90a6d9">${statusHint}</div>
+          <div style="font-weight:900;color:#f1fff7">${connected?'Instância conectada/autenticada':'Instância ainda não verificada'}</div>
+          <div style="font-family:monospace;font-size:12px;color:#90a6d9">${connected?'celular online ou webhook registrado':'preencha os dados e salve para verificar'}</div>
         </div>
       </div>
       <div class="zapi-dark-field">
@@ -1935,21 +1903,21 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       </div>
       <div class="zapi-dark-field">
         <label>Token da instância</label>
-        <input id="zapi-token" type="password" placeholder="${hasCreds?'Preencha somente para trocar o token':'Token da instância'}">
+        <input id="zapi-token" type="password" placeholder="${q.instance_id?'Preencha para alterar o token':'Token da instância'}">
         <div class="zapi-help-line">// painel Z-API → Instâncias → Token da instância</div>
       </div>
       <div class="zapi-dark-field">
         <label>Client-Token (segurança da conta)</label>
-        <input id="zapi-client-token" type="password" placeholder="${hasCreds?'Preencha somente para trocar o Client-Token':'Client-Token, se ativo'}">
+        <input id="zapi-client-token" type="password" placeholder="Client-Token, se ativo">
         <div class="zapi-help-line">// painel Z-API → Segurança → Client-Token</div>
       </div>
       <div class="zapi-url-preview">https://api.z-api.io/instances/<span>${esc(q.instance_id||'{ID}')}</span>/token/<span>{TOKEN}</span>/send-text</div>
       <div class="zapi-config-title" style="margin-top:20px">📡 Webhook — receber mensagens</div>
       <div class="zapi-url-preview"><span>${esc(q.webhook_url||webhook)}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="whats-green-btn" onclick="saveWhatsZapiConfig(${q.id})">💾 Salvar credenciais</button>
-        <button class="whats-green-btn" onclick="testWhatsQueueStatus(${q.id})">🔎 Sincronizar agora</button>
-        <button class="whats-green-btn" onclick="registerWhatsQueueWebhook(${q.id})">📌 Forçar webhook</button>
+        <button class="whats-green-btn" onclick="saveWhatsZapiConfig(${q.id})">💾 Salvar e verificar</button>
+        <button class="whats-green-btn" onclick="testWhatsQueueStatus(${q.id})">🔎 Testar status</button>
+        <button class="whats-green-btn" onclick="registerWhatsQueueWebhook(${q.id})">📌 Registrar na Z-API</button>
       </div>
     </div>`;
   }
@@ -2631,34 +2599,286 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       meta.innerHTML=`<small>Arquivo selecionado</small><div class="upload-file-name">${esc(record.name)}</div><div class="upload-file-actions">${key?`<button type="button" class="btn btn-light btn-xs" data-action="previewFile" data-preview-key="${key}">Visualizar</button>`:''}<span class="muted">Pré-visualização antes de salvar.</span></div>`;
     }catch(err){console.error(err);meta.innerHTML='<small>Não foi possível gerar a visualização deste arquivo.</small>'}
   }
-  function fibraInfoHtml(st,opp={}){
+  
+  function categoryIsWifiAdicional(name){
+    const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    return n.includes('WIFI') && n.includes('ADICIONAL');
+  }
+  function wifiAdicionalInfoHtml(st,opp={}){
+    const info=opp.productInfo?.wifiAdicional||{};
+    const catId=opp.categoryId||selectedCategoryFromPlans(st,opp.planIds||[]);
+    const show=categoryIsWifiAdicional(categoryNameById(st,catId)) && !!oppPlanSelected(opp);
+    const parcelas=Array.from({length:10},(_,i)=>i+1);
+    return `<div data-product-fields="wifiAdicional" class="product-fields ${show?'':'hidden'}">
+      <div class="section-title">Informações do produto — WIFI Adicional</div>
+      <div class="filebox mb-product">Esses campos aparecem automaticamente quando a categoria escolhida é <strong>WIFI Adicional</strong> e um produto/plano foi selecionado.</div>
+
+      <div class="section-title compact">Faturamento e cobrança</div>
+      <div class="form-row three">
+        <div class="field"><label>Vencimento</label><input name="wifiVencimento" type="number" min="1" max="31" placeholder="Dia do vencimento" value="${esc(info.vencimento||'')}"></div>
+        <div class="field"><label>Taxa de ativação</label><div class="inline-options"><label><input type="radio" name="wifiTaxaAtivacao" value="Sim" ${checked(info.taxaAtivacao,'Sim')}> Sim</label><label><input type="radio" name="wifiTaxaAtivacao" value="Não" ${checked(info.taxaAtivacao||'Não','Não')}> Não</label></div></div>
+        <div class="field" data-cond="wifiTaxaSim"><label>Valor da taxa de ativação</label><input name="wifiTaxaValor" type="number" step="0.01" placeholder="R$" value="${esc(info.taxaValor||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Forma de pagamento</label><div class="inline-options"><label><input type="radio" name="wifiFormaPagamento" value="Boleto" ${checked(info.formaPagamento||'Boleto','Boleto')}> Boleto</label><label><input type="radio" name="wifiFormaPagamento" value="Débito" ${checked(info.formaPagamento,'Débito')}> Débito</label></div></div>
+        <div class="field" data-cond="wifiPagamentoBoleto"><label>Envio da fatura</label><div class="inline-options"><label><input type="checkbox" name="wifiEnvioFatura" value="WhatsApp" ${hasWifiInvoiceChannel(info,'WhatsApp')}> WhatsApp</label><label><input type="checkbox" name="wifiEnvioFatura" value="E-mail" ${hasWifiInvoiceChannel(info,'E-mail')}> E-mail</label></div></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Unificar faturas</label><div class="inline-options"><label><input type="radio" name="wifiUnificarFaturas" value="Sim" ${checked(info.unificarFaturas||'Sim','Sim')}> Sim</label><label><input type="radio" name="wifiUnificarFaturas" value="Não" ${checked(info.unificarFaturas,'Não')}> Não</label></div></div>
+        <div class="field" data-cond="wifiUnificarNao"><label>Motivo para não unificar</label><input name="wifiUnificarMotivo" placeholder="Informe o motivo" value="${esc(info.unificarMotivo||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Instalação e reserva</div>
+      <div class="form-row">
+        <div class="field"><label>Metragem excedente</label><div class="inline-options"><label><input type="radio" name="wifiMetragemExcedente" value="Não" ${checked(info.metragemExcedente||'Não','Não')}> Não</label><label><input type="radio" name="wifiMetragemExcedente" value="Sim" ${checked(info.metragemExcedente,'Sim')}> Sim</label></div></div>
+        <div class="field" data-cond="wifiMetragemSim"><label>Metragem excedente</label><input name="wifiMetragem" type="number" step="0.01" placeholder="Informe a metragem" value="${esc(info.metragem||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Data da reserva</label><input name="wifiReservaData" type="date" value="${esc(info.reservaData||'')}"></div>
+        <div class="field"><label>Hora da reserva</label><input name="wifiReservaHora" type="time" value="${esc(info.reservaHora||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Dados do serviço</div>
+      <div class="form-row three">
+        <div class="field"><label>Número da conexão</label><input name="wifiNumeroConexao" placeholder="Informe o número da conexão" value="${esc(info.numeroConexao||'')}"></div>
+        <div class="field"><label>Quantidade de roteador</label><input name="wifiQuantidadeRoteador" type="number" min="1" placeholder="Quantidade" value="${esc(info.quantidadeRoteador||'')}"></div>
+        <div class="field"><label>Modelo roteador</label><input name="wifiModeloRoteador" placeholder="Modelo do roteador" value="${esc(info.modeloRoteador||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Realizar cabeamento para instalar equipamento?</label><div class="inline-options"><label><input type="radio" name="wifiCabeamento" value="Sim" ${checked(info.cabeamento,'Sim')}> Sim</label><label><input type="radio" name="wifiCabeamento" value="Não" ${checked(info.cabeamento||'Não','Não')}> Não</label></div></div>
+        <div class="field" data-cond="wifiCabeamentoSim"><label>Metragem de cabo</label><input name="wifiCaboMetragem" type="number" step="0.01" placeholder="Metros de cabo" value="${esc(info.caboMetragem||'')}"><small>Cabo: R$ 6,00 por metro | Hora técnica: R$ 55,00</small></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field" data-cond="wifiCabeamentoSim"><label>Hora técnica</label><input name="wifiHoraTecnicaQtd" type="number" step="0.5" placeholder="Quantidade de horas" value="${esc(info.horaTecnicaQtd||'')}"></div>
+        <div class="field"><label>Parcelar valor total em</label><select name="wifiParcelas"><option value="">Selecione</option>${parcelas.map(p=>`<option value="${p}" ${selected(info.parcelas,p)}>${p}x</option>`).join('')}</select></div>
+      </div>
+
+      <div class="section-title compact">Documentos obrigatórios</div>
+      <div class="attachments-grid">
+        ${fileFieldCard('Documento com foto','wifiDocumentoFoto',info.documentoFoto)}
+        ${fileFieldCard('Selfie com o documento','wifiSelfieDocumento',info.selfieDocumento)}
+        ${fileFieldCard('Print da conversa com aceite','wifiPrintAceite',info.printAceite)}
+      </div>
+    </div>`
+  }
+  function hasWifiInvoiceChannel(info,ch){
+    return Array.isArray(info.envioFatura) && info.envioFatura.includes(ch);
+  }
+
+
+  function categoryIsTrocaTitular(name){
+    const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    return n.includes('TROCA') && n.includes('TITULAR');
+  }
+  function trocaTitularInfoHtml(st,opp={}){
+    const info=opp.productInfo?.trocaTitular||{};
+    const catId=opp.categoryId||selectedCategoryFromPlans(st,opp.planIds||[]);
+    const show=categoryIsTrocaTitular(categoryNameById(st,catId)) && !!oppPlanSelected(opp);
+    return `<div data-product-fields="trocaTitular" class="product-fields ${show?'':'hidden'}">
+      <div class="section-title">Informações do produto — Troca de Titular</div>
+      <div class="filebox mb-product">Esses campos aparecem automaticamente quando a categoria escolhida é <strong>TROCA DE TITULAR</strong> e um produto/plano foi selecionado.</div>
+
+      <div class="section-title compact">Atual titular</div>
+      <div class="form-row three">
+        <div class="field"><label>Atual titular</label><input name="ttAtualTitular" placeholder="Nome do atual titular" value="${esc(info.atualTitular||'')}"></div>
+        <div class="field"><label>Plano atual</label><input name="ttPlanoAtual" placeholder="Plano atual" value="${esc(info.planoAtual||'')}"></div>
+        <div class="field"><label>Valor atual</label><input name="ttValorAtual" type="number" step="0.01" placeholder="R$" value="${esc(info.valorAtual||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Número do contrato a ser transferido</label><input name="ttNumeroContratoTransferido" placeholder="Número do contrato" value="${esc(info.numeroContratoTransferido||'')}"></div>
+        <div class="field"><label>Cód. conexão atual</label><input name="ttCodConexaoAtual" placeholder="Código da conexão atual" value="${esc(info.codConexaoAtual||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Novo titular</div>
+      <div class="form-row three">
+        <div class="field"><label>Novo titular</label><input name="ttNovoTitular" placeholder="Nome do novo titular" value="${esc(info.novoTitular||'')}"></div>
+        <div class="field"><label>Plano</label><input name="ttPlanoNovo" placeholder="Plano do novo titular" value="${esc(info.planoNovo||'')}"></div>
+        <div class="field"><label>Valor</label><input name="ttValorNovo" type="number" step="0.01" placeholder="R$" value="${esc(info.valorNovo||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Data de vencimento</label><input name="ttDataVencimento" type="number" min="1" max="31" placeholder="Dia do vencimento" value="${esc(info.dataVencimento||'')}"></div>
+        <div class="field"><label>Cód. da nova conexão</label><input name="ttCodNovaConexao" placeholder="Código da nova conexão" value="${esc(info.codNovaConexao||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Unificar as faturas</label><div class="inline-options"><label><input type="radio" name="ttUnificarFaturas" value="Sim" ${checked(info.unificarFaturas||'Sim','Sim')}> Sim</label><label><input type="radio" name="ttUnificarFaturas" value="Não" ${checked(info.unificarFaturas,'Não')}> Não</label></div></div>
+        <div class="field"><label>Troca de equipamento</label><div class="inline-options"><label><input type="radio" name="ttTrocaEquipamento" value="Sim" ${checked(info.trocaEquipamento,'Sim')}> Sim</label><label><input type="radio" name="ttTrocaEquipamento" value="Não" ${checked(info.trocaEquipamento||'Não','Não')}> Não</label></div></div>
+      </div>
+
+      <div class="section-title compact">Equipamento / instalação</div>
+      <div class="form-row">
+        <div class="field"><label>Retirar</label><input name="ttRetirar" placeholder="Equipamento/material a retirar" value="${esc(info.retirar||'')}"></div>
+        <div class="field"><label>Instalar</label><input name="ttInstalar" placeholder="Equipamento/material a instalar" value="${esc(info.instalar||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Disponibilidade do cliente</label><input name="ttDisponibilidadeCliente" placeholder="Dias/horários disponíveis" value="${esc(info.disponibilidadeCliente||'')}"></div>
+        <div class="field"><label>Contato do cliente</label><input name="ttContatoCliente" placeholder="Telefone/WhatsApp" value="${esc(info.contatoCliente||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Rede WiFi</label><input name="ttRedeWifi" placeholder="Nome da rede WiFi" value="${esc(info.redeWifi||'')}"></div>
+        <div class="field"><label>Senha</label><input name="ttSenhaWifi" placeholder="Senha da rede" value="${esc(info.senhaWifi||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Caso for empresa</div>
+      <div class="form-row">
+        <div class="field"><label>Sócio(a) administrador(a)</label><input name="ttSocioAdministrador" placeholder="Nome do sócio(a) administrador(a)" value="${esc(info.socioAdministrador||'')}"></div>
+        <div class="field"><label>CPF do sócio(a)</label><input name="ttCpfSocio" placeholder="CPF" value="${esc(info.cpfSocio||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Documentos obrigatórios</div>
+      <div class="attachments-grid">
+        ${fileFieldCard('Documento com foto','ttDocumentoFoto',info.documentoFoto)}
+        ${fileFieldCard('Selfie com o documento','ttSelfieDocumento',info.selfieDocumento)}
+        ${fileFieldCard('Print da conversa com aceite','ttPrintAceite',info.printAceite)}
+      </div>
+    </div>`
+  }
+
+
+  function categoryIsTrocaEndereco(name){
+    const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    return n.includes('TROCA') && n.includes('ENDERECO');
+  }
+  function trocaEnderecoInfoHtml(st,opp={}){
+    const info=opp.productInfo?.trocaEndereco||{};
+    const catId=opp.categoryId||selectedCategoryFromPlans(st,opp.planIds||[]);
+    const show=categoryIsTrocaEndereco(categoryNameById(st,catId)) && !!oppPlanSelected(opp);
+    return `<div data-product-fields="trocaEndereco" class="product-fields ${show?'':'hidden'}">
+      <div class="section-title">Informações do produto — Troca de Endereço</div>
+      <div class="filebox mb-product">Esses campos aparecem automaticamente quando a categoria escolhida é <strong>TROCA DE ENDEREÇO</strong> e um produto/plano foi selecionado.</div>
+
+      <div class="section-title compact">Endereços e plano</div>
+      <div class="form-row">
+        <div class="field"><label>Endereço atual</label><textarea name="teEnderecoAtual" placeholder="Informe o endereço atual completo">${esc(info.enderecoAtual||'')}</textarea></div>
+        <div class="field"><label>Novo endereço</label><textarea name="teNovoEndereco" placeholder="Informe o novo endereço completo">${esc(info.novoEndereco||'')}</textarea></div>
+      </div>
+
+      <div class="form-row three">
+        <div class="field"><label>Plano</label><input name="tePlano" placeholder="Plano contratado" value="${esc(info.plano||'')}"></div>
+        <div class="field"><label>Número do contrato</label><input name="teNumeroContrato" placeholder="Número do contrato" value="${esc(info.numeroContrato||'')}"></div>
+        <div class="field"><label>Telefone para contato</label><input name="teTelefoneContato" placeholder="Telefone/WhatsApp" value="${esc(info.telefoneContato||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Equipamento / execução</div>
+      <div class="form-row">
+        <div class="field"><label>Troca de equipamento</label><div class="inline-options"><label><input type="radio" name="teTrocaEquipamento" value="Sim" ${checked(info.trocaEquipamento,'Sim')}> Sim</label><label><input type="radio" name="teTrocaEquipamento" value="Não" ${checked(info.trocaEquipamento||'Não','Não')}> Não</label></div></div>
+        <div class="field"><label>Equipamentos já estão no novo endereço?</label><div class="inline-options"><label><input type="radio" name="teEquipamentosNovoEndereco" value="Sim" ${checked(info.equipamentosNovoEndereco,'Sim')}> Sim</label><label><input type="radio" name="teEquipamentosNovoEndereco" value="Não" ${checked(info.equipamentosNovoEndereco||'Não','Não')}> Não</label></div></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field" data-cond="teTrocaEquipamentoSim"><label>Retirar</label><input name="teRetirar" placeholder="Equipamento/material a retirar" value="${esc(info.retirar||'')}"></div>
+        <div class="field" data-cond="teTrocaEquipamentoSim"><label>Instalar</label><input name="teInstalar" placeholder="Equipamento/material a instalar" value="${esc(info.instalar||'')}"></div>
+      </div>
+
+      <div class="form-row three">
+        <div class="field"><label>Caixa / metragem</label><input name="teCaixaMetragem" placeholder="Informe caixa/metragem" value="${esc(info.caixaMetragem||'')}"></div>
+        <div class="field"><label>Coordenadas</label><input name="teCoordenadas" placeholder="Latitude/longitude" value="${esc(info.coordenadas||'')}"></div>
+        <div class="field"><label>Metragem excedente</label><input name="teMetragemExcedente" placeholder="Informe a metragem excedente" value="${esc(info.metragemExcedente||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Taxa e negociação</div>
+      <div class="form-row">
+        <div class="field"><label>Taxa de mudança de endereço</label><div class="inline-options"><label><input type="radio" name="teTaxaMudanca" value="Benefício R$ 100,00" ${checked(info.taxaMudanca||'Benefício R$ 100,00','Benefício R$ 100,00')}> R$ 100,00 como benefício</label><label><input type="radio" name="teTaxaMudanca" value="Parcelado 2x" ${checked(info.taxaMudanca,'Parcelado 2x')}> Parcelado 2x</label></div></div>
+        <div class="field"><label>Negociação diferenciada</label><div class="inline-options"><label><input type="radio" name="teNegociacaoDiferenciada" value="Sim" ${checked(info.negociacaoDiferenciada,'Sim')}> Sim</label><label><input type="radio" name="teNegociacaoDiferenciada" value="Não" ${checked(info.negociacaoDiferenciada||'Não','Não')}> Não</label></div></div>
+      </div>
+
+      <div class="field" data-cond="teNegociacaoSim"><label>Observação da negociação diferenciada</label><textarea name="teNegociacaoObs" placeholder="Descreva a negociação diferenciada">${esc(info.negociacaoObs||'')}</textarea></div>
+
+      <div class="section-title compact">Faturamento</div>
+      <div class="form-row three">
+        <div class="field"><label>Data de vencimento</label><input name="teDataVencimento" type="number" min="1" max="31" placeholder="Dia do vencimento" value="${esc(info.dataVencimento||'')}"></div>
+        <div class="field"><label>Forma de pagamento</label><select name="teFormaPagamento"><option value="">Selecione</option><option value="Boleto" ${selected(info.formaPagamento,'Boleto')}>Boleto</option><option value="Débito" ${selected(info.formaPagamento,'Débito')}>Débito</option></select></div>
+        <div class="field"><label>Unificar faturas</label><div class="inline-options"><label><input type="radio" name="teUnificarFaturas" value="Sim" ${checked(info.unificarFaturas||'Sim','Sim')}> Sim</label><label><input type="radio" name="teUnificarFaturas" value="Não" ${checked(info.unificarFaturas,'Não')}> Não</label></div></div>
+      </div>
+
+      <div class="field" data-cond="teUnificarNao"><label>Motivo para não unificar faturas</label><input name="teUnificarMotivo" placeholder="Informe o motivo" value="${esc(info.unificarMotivo||'')}"></div>
+    </div>`
+  }
+
+function fibraInfoHtml(st,opp={}){
     const info=opp.productInfo?.fibra||{};
     const catId=opp.categoryId||selectedCategoryFromPlans(st,opp.planIds||[]);
     const show=String(categoryNameById(st,catId)).toUpperCase()==='FIBRA' && !!oppPlanSelected(opp);
     return `<div data-product-fields="fibra" class="product-fields ${show?'':'hidden'}">
-      <div class="section-title">Informações obrigatórias do produto — Fibra</div>
+      <div class="section-title">Informações do produto — Fibra</div>
       <div class="filebox mb-product">Esses campos aparecem automaticamente quando a categoria escolhida é <strong>FIBRA</strong> e um produto/plano de fibra foi selecionado.</div>
+
+      <div class="section-title compact">Faturamento e cobrança</div>
       <div class="form-row three">
         <div class="field"><label>Vencimento</label><input name="fibraVencimento" type="number" min="1" max="31" placeholder="Dia do vencimento" value="${esc(info.vencimento||'')}"></div>
         <div class="field"><label>Taxa de ativação</label><div class="inline-options"><label><input type="radio" name="fibraTaxaAtivacao" value="Sim" ${checked(info.taxaAtivacao,'Sim')}> Sim</label><label><input type="radio" name="fibraTaxaAtivacao" value="Não" ${checked(info.taxaAtivacao||'Não','Não')}> Não</label></div></div>
-        <div class="field" data-cond="fibraTaxaSim"><label>Valor da taxa</label><input name="fibraTaxaValor" type="number" step="0.01" placeholder="R$" value="${esc(info.taxaValor||'')}"></div>
+        <div class="field" data-cond="fibraTaxaSim"><label>Valor da taxa de ativação</label><input name="fibraTaxaValor" type="number" step="0.01" placeholder="R$" value="${esc(info.taxaValor||'')}"></div>
       </div>
+
       <div class="form-row">
         <div class="field"><label>Forma de pagamento</label><div class="inline-options"><label><input type="radio" name="fibraFormaPagamento" value="Boleto" ${checked(info.formaPagamento||'Boleto','Boleto')}> Boleto</label><label><input type="radio" name="fibraFormaPagamento" value="Débito" ${checked(info.formaPagamento,'Débito')}> Débito</label></div></div>
         <div class="field" data-cond="fibraPagamentoBoleto"><label>Envio da fatura</label><div class="inline-options"><label><input type="checkbox" name="fibraEnvioFatura" value="WhatsApp" ${hasInvoiceChannel(info,'WhatsApp')}> WhatsApp</label><label><input type="checkbox" name="fibraEnvioFatura" value="E-mail" ${hasInvoiceChannel(info,'E-mail')}> E-mail</label></div></div>
       </div>
+
       <div class="form-row">
         <div class="field"><label>Unificar faturas</label><div class="inline-options"><label><input type="radio" name="fibraUnificarFaturas" value="Sim" ${checked(info.unificarFaturas||'Sim','Sim')}> Sim</label><label><input type="radio" name="fibraUnificarFaturas" value="Não" ${checked(info.unificarFaturas,'Não')}> Não</label></div></div>
         <div class="field" data-cond="fibraUnificarNao"><label>Motivo para não unificar</label><input name="fibraUnificarMotivo" placeholder="Informe o motivo" value="${esc(info.unificarMotivo||'')}"></div>
       </div>
+
+      <div class="section-title compact">Instalação e reserva</div>
       <div class="form-row">
         <div class="field"><label>Metragem excedente</label><div class="inline-options"><label><input type="radio" name="fibraMetragemExcedente" value="Não" ${checked(info.metragemExcedente||'Não','Não')}> Não</label><label><input type="radio" name="fibraMetragemExcedente" value="Sim" ${checked(info.metragemExcedente,'Sim')}> Sim</label></div></div>
         <div class="field" data-cond="fibraMetragemSim"><label>Metragem excedente</label><input name="fibraMetragem" type="number" step="0.01" placeholder="Informe a metragem" value="${esc(info.metragem||'')}"></div>
       </div>
+
       <div class="form-row">
         <div class="field"><label>Data da reserva</label><input name="fibraReservaData" type="date" value="${esc(info.reservaData||'')}"></div>
         <div class="field"><label>Hora da reserva</label><input name="fibraReservaHora" type="time" value="${esc(info.reservaHora||'')}"></div>
       </div>
+
+      <div class="section-title compact">Dados técnicos / execução</div>
+      <div class="form-row">
+        <div class="field"><label>Serviços contratados</label><textarea name="fibraServicosContratados" placeholder="Descreva os serviços contratados">${esc(info.servicosContratados||'')}</textarea></div>
+        <div class="field"><label>Obs.</label><textarea name="fibraObs" placeholder="Observações gerais">${esc(info.obs||'')}</textarea></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Ponto A</label><input name="fibraPontoA" placeholder="Informe o Ponto A" value="${esc(info.pontoA||'')}"></div>
+        <div class="field"><label>Ponto B</label><input name="fibraPontoB" placeholder="Informe o Ponto B" value="${esc(info.pontoB||'')}"></div>
+      </div>
+
+      <div class="field"><label>Necessário documentações adicionais para execução</label><textarea name="fibraDocumentacoesAdicionais" placeholder="Informe se há documentos adicionais necessários para execução">${esc(info.documentacoesAdicionais||'')}</textarea></div>
+
+      <div class="form-row">
+        <div class="field"><label>Nome de quem irá acompanhar</label><input name="fibraAcompanhanteNome" value="${esc(info.acompanhanteNome||'')}"></div>
+        <div class="field"><label>Contato de quem irá acompanhar</label><input name="fibraAcompanhanteContato" value="${esc(info.acompanhanteContato||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Nome do responsável pelo TI</label><input name="fibraTiNome" value="${esc(info.tiNome||'')}"></div>
+        <div class="field"><label>Contato do responsável pelo TI</label><input name="fibraTiContato" value="${esc(info.tiContato||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Meio de fechamento</label><input name="fibraMeioFechamento" placeholder="Ex: WhatsApp, ligação, presencial..." value="${esc(info.meioFechamento||'')}"></div>
+        <div class="field"><label>Meio de entrada</label><input name="fibraMeioEntrada" placeholder="Ex: Lead, loja, indicação..." value="${esc(info.meioEntrada||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Equipamento e rede</div>
+      <div class="form-row">
+        <div class="field"><label>Equipamento</label><div class="inline-options"><label><input type="radio" name="fibraEquipamento" value="ONU" ${checked(info.equipamento||'ONU','ONU')}> ONU</label><label><input type="radio" name="fibraEquipamento" value="Routerboard" ${checked(info.equipamento,'Routerboard')}> Routerboard</label></div></div>
+        <div class="field" data-cond="fibraRouterboard"><label>Routerboard / detalhe</label><input name="fibraRouterboardDetalhe" placeholder="Informe o modelo/detalhe" value="${esc(info.routerboardDetalhe||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>VLAN</label><div class="inline-options"><label><input type="radio" name="fibraVlan" value="Sim" ${checked(info.vlan,'Sim')}> Sim</label><label><input type="radio" name="fibraVlan" value="Não" ${checked(info.vlan||'Não','Não')}> Não</label></div></div>
+        <div class="field" data-cond="fibraVlanSim"><label>Qual VLAN será liberada?</label><input name="fibraVlanLiberada" placeholder="Informe a VLAN" value="${esc(info.vlanLiberada||'')}"></div>
+      </div>
+
       <div class="section-title compact">Documentos obrigatórios</div>
       <div class="attachments-grid">
         ${fileFieldCard('Documento com foto','fibraDocumentoFoto',info.documentoFoto)}
@@ -2898,6 +3118,16 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     form.querySelectorAll('[data-cond="fibraPagamentoBoleto"]').forEach(el=>el.classList.toggle('hidden',val('fibraFormaPagamento')!=='Boleto'));
     form.querySelectorAll('[data-cond="fibraUnificarNao"]').forEach(el=>el.classList.toggle('hidden',val('fibraUnificarFaturas')!=='Não'));
     form.querySelectorAll('[data-cond="fibraMetragemSim"]').forEach(el=>el.classList.toggle('hidden',val('fibraMetragemExcedente')!=='Sim'));
+    form.querySelectorAll('[data-cond="fibraRouterboard"]').forEach(el=>el.classList.toggle('hidden',val('fibraEquipamento')!=='Routerboard'));
+    form.querySelectorAll('[data-cond="fibraVlanSim"]').forEach(el=>el.classList.toggle('hidden',val('fibraVlan')!=='Sim'));
+    form.querySelectorAll('[data-cond="wifiTaxaSim"]').forEach(el=>el.classList.toggle('hidden',val('wifiTaxaAtivacao')!=='Sim'));
+    form.querySelectorAll('[data-cond="wifiPagamentoBoleto"]').forEach(el=>el.classList.toggle('hidden',val('wifiFormaPagamento')!=='Boleto'));
+    form.querySelectorAll('[data-cond="wifiUnificarNao"]').forEach(el=>el.classList.toggle('hidden',val('wifiUnificarFaturas')!=='Não'));
+    form.querySelectorAll('[data-cond="wifiMetragemSim"]').forEach(el=>el.classList.toggle('hidden',val('wifiMetragemExcedente')!=='Sim'));
+    form.querySelectorAll('[data-cond="wifiCabeamentoSim"]').forEach(el=>el.classList.toggle('hidden',val('wifiCabeamento')!=='Sim'));
+    form.querySelectorAll('[data-cond="teTrocaEquipamentoSim"]').forEach(el=>el.classList.toggle('hidden',val('teTrocaEquipamento')!=='Sim'));
+    form.querySelectorAll('[data-cond="teUnificarNao"]').forEach(el=>el.classList.toggle('hidden',val('teUnificarFaturas')!=='Não'));
+    form.querySelectorAll('[data-cond="teNegociacaoSim"]').forEach(el=>el.classList.toggle('hidden',val('teNegociacaoDiferenciada')!=='Sim'));
     const mobileType=val('mobileTipo')||'Número novo';
     form.querySelectorAll('[data-cond="mobileNumeroNovo"]').forEach(el=>el.classList.toggle('hidden',mobileType!=='Número novo'));
     form.querySelectorAll('[data-cond="mobilePortabilidade"]').forEach(el=>el.classList.toggle('hidden',mobileType!=='Número Portabilidade'));
@@ -3219,7 +3449,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
   document.addEventListener('dragover',e=>{const dz=e.target.closest('[data-drop-stage]');if(dz){e.preventDefault();dz.classList.add('dragover')}});
   document.addEventListener('dragleave',e=>{const dz=e.target.closest('[data-drop-stage]');if(dz)dz.classList.remove('dragover')});
   document.addEventListener('drop',e=>{const dz=e.target.closest('[data-drop-stage]');if(!dz)return;e.preventDefault();dz.classList.remove('dragover');const id=Number(e.dataTransfer.getData('text/plain'));const st=getState();const opp=st.opportunities.find(o=>o.id===id);if(opp){const u=getUser();const targetStage=Number(dz.dataset.dropStage);const targetFunnel=st.stages.find(s=>s.id===targetStage)?.funnelId||opp.funnelId;if(!hasFunnelAccess(st,u,targetFunnel)){toast('Você não tem acesso ao funil de destino.','error');return;}const wonStage=getWonStage(st,targetFunnel);if(wonStage&&Number(targetStage)===Number(wonStage.id)){toast('Para levar a oportunidade para GANHO, abra a oportunidade e use o botão Marcar Ganho. O sistema validará todos os campos obrigatórios.','warn');return;}const moveCheck=validateOpportunityMove(st,opp,targetStage);if(!moveCheck.ok){toast(moveCheck.message,'error');return;}opp.stageId=targetStage;opp.funnelId=targetFunnel;opp.updatedAt=now();opp.history=opp.history||[];opp.history.push({at:now(),actor:u.name,action:'Movida para etapa '+stageName(st,opp.stageId)});setState(st);render();toast('Oportunidade movida.')}});
-  document.addEventListener('submit',async e=>{e.preventDefault();try{const id=e.target.id;if(id==='loginForm')submitLogin(e.target);if(id==='firstAccessForm')submitFirstAccess(e.target);if(id==='oppForm')await submitOpp(e.target);if(id==='creditForm')submitCredit(e.target);if(id==='analysisForm')submitBkoAnalysis(e.target);if(id==='creditRuleForm')submitCreditRule(e.target);if(id==='contestForm')submitContest(e.target);if(id==='decisionForm')submitDecision(e.target);if(id==='outcomeForm')submitOutcome(e.target);if(id==='adminUserForm')adminCreateUser(e.target);if(id==='adminEditUserForm')adminUpdateUser(e.target);if(id==='adminFunnelForm')adminCreateFunnel(e.target);if(id==='adminEditFunnelForm')adminUpdateFunnel(e.target);if(id==='adminStageForm')adminCreateStage(e.target);if(id==='adminEditStageForm')adminUpdateStage(e.target);if(id==='adminOriginForm')adminCreateOrigin(e.target);if(id==='adminEditOriginForm')adminUpdateOrigin(e.target);if(id==='adminCategoryForm')adminCreateProductCategory(e.target);if(id==='adminEditCategoryForm')adminUpdateCategory(e.target);if(id==='adminPlanForm')adminCreatePlan(e.target);if(id==='adminEditPlanForm')adminUpdatePlan(e.target);if(id==='adminTagForm')adminCreateTag(e.target);if(id==='adminEditTagForm')adminUpdateTag(e.target);if(id==='adminOutcomeForm')adminCreateOutcome(e.target);if(id==='adminEditOutcomeForm')adminUpdateOutcomeReason(e.target);if(id==='agendaEventForm')submitAgendaEvent(e.target);if(id==='googleAgendaForm')submitGoogleAgenda(e.target)}catch(err){console.error(err);toast('Não foi possível salvar. Detalhe técnico: '+(err?.message||err),'error')}});
+  document.addEventListener('submit',async e=>{e.preventDefault();try{const id=e.target.id;if(id==='loginForm')submitLogin(e.target);if(id==='oppForm')await submitOpp(e.target);if(id==='creditForm')submitCredit(e.target);if(id==='analysisForm')submitBkoAnalysis(e.target);if(id==='creditRuleForm')submitCreditRule(e.target);if(id==='contestForm')submitContest(e.target);if(id==='decisionForm')submitDecision(e.target);if(id==='outcomeForm')submitOutcome(e.target);if(id==='adminUserForm')adminCreateUser(e.target);if(id==='adminEditUserForm')adminUpdateUser(e.target);if(id==='adminFunnelForm')adminCreateFunnel(e.target);if(id==='adminEditFunnelForm')adminUpdateFunnel(e.target);if(id==='adminStageForm')adminCreateStage(e.target);if(id==='adminEditStageForm')adminUpdateStage(e.target);if(id==='adminOriginForm')adminCreateOrigin(e.target);if(id==='adminEditOriginForm')adminUpdateOrigin(e.target);if(id==='adminCategoryForm')adminCreateProductCategory(e.target);if(id==='adminEditCategoryForm')adminUpdateCategory(e.target);if(id==='adminPlanForm')adminCreatePlan(e.target);if(id==='adminEditPlanForm')adminUpdatePlan(e.target);if(id==='adminTagForm')adminCreateTag(e.target);if(id==='adminEditTagForm')adminUpdateTag(e.target);if(id==='adminOutcomeForm')adminCreateOutcome(e.target);if(id==='adminEditOutcomeForm')adminUpdateOutcomeReason(e.target);if(id==='agendaEventForm')submitAgendaEvent(e.target);if(id==='googleAgendaForm')submitGoogleAgenda(e.target)}catch(err){console.error(err);toast('Não foi possível salvar. Detalhe técnico: '+(err?.message||err),'error')}});
 
   function fd(form){return Object.fromEntries(new FormData(form).entries())}
   function fdAll(form,name){return [...new FormData(form).getAll(name)].map(Number).filter(Boolean)}
@@ -3365,9 +3595,158 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const first=getFirstStage(st,fid);
     return !!(first&&Number(first.id)===sid);
   }
+  function isFileFilled(form,name,current){
+    const input=form.querySelector(`input[name="${name}"]`);
+    return !!(input?.files?.[0] || normalizeStoredFile(current));
+  }
+  function isFibraSelectedInForm(form,st){
+    const catId=form.querySelector('[name="categoryId"]')?.value||'';
+    const planSelected=!!form.querySelector('[name="planIds"]')?.value;
+    return String(categoryNameById(st,catId)).toUpperCase()==='FIBRA' && planSelected;
+  }
+  function validateFibraFields(form,opp={}){
+    const data=fd(form);
+    const info=opp?.productInfo?.fibra||{};
+    const checkedValue=(name)=>form.querySelector(`input[name="${name}"]:checked`)?.value||'';
+
+    if(!String(data.fibraVencimento||'').trim())return focusAndWarn(form,'[name="fibraVencimento"]','Informe o vencimento da Fibra.');
+    if(!checkedValue('fibraTaxaAtivacao'))return focusAndWarn(form,'input[name="fibraTaxaAtivacao"]','Informe se possui taxa de ativação.');
+    if(checkedValue('fibraTaxaAtivacao')==='Sim'&&!String(data.fibraTaxaValor||'').trim())return focusAndWarn(form,'[name="fibraTaxaValor"]','Informe o valor da taxa de ativação.');
+    if(!checkedValue('fibraFormaPagamento'))return focusAndWarn(form,'input[name="fibraFormaPagamento"]','Informe a forma de pagamento.');
+    if(checkedValue('fibraFormaPagamento')==='Boleto' && !new FormData(form).getAll('fibraEnvioFatura').length)return focusAndWarn(form,'input[name="fibraEnvioFatura"]','Informe o envio da fatura: WhatsApp ou E-mail.');
+    if(!checkedValue('fibraUnificarFaturas'))return focusAndWarn(form,'input[name="fibraUnificarFaturas"]','Informe se irá unificar faturas.');
+    if(checkedValue('fibraUnificarFaturas')==='Não'&&!String(data.fibraUnificarMotivo||'').trim())return focusAndWarn(form,'[name="fibraUnificarMotivo"]','Informe o motivo para não unificar faturas.');
+    if(!checkedValue('fibraMetragemExcedente'))return focusAndWarn(form,'input[name="fibraMetragemExcedente"]','Informe se possui metragem excedente.');
+    if(checkedValue('fibraMetragemExcedente')==='Sim'&&!String(data.fibraMetragem||'').trim())return focusAndWarn(form,'[name="fibraMetragem"]','Informe a metragem excedente.');
+    if(!String(data.fibraReservaData||'').trim())return focusAndWarn(form,'[name="fibraReservaData"]','Informe a data da reserva.');
+    if(!String(data.fibraReservaHora||'').trim())return focusAndWarn(form,'[name="fibraReservaHora"]','Informe a hora da reserva.');
+
+    if(!String(data.fibraServicosContratados||'').trim())return focusAndWarn(form,'[name="fibraServicosContratados"]','Informe os serviços contratados.');
+    if(!String(data.fibraPontoA||'').trim())return focusAndWarn(form,'[name="fibraPontoA"]','Informe o Ponto A.');
+    if(!String(data.fibraPontoB||'').trim())return focusAndWarn(form,'[name="fibraPontoB"]','Informe o Ponto B.');
+    if(!String(data.fibraAcompanhanteNome||'').trim())return focusAndWarn(form,'[name="fibraAcompanhanteNome"]','Informe o nome de quem irá acompanhar.');
+    if(!String(data.fibraAcompanhanteContato||'').trim())return focusAndWarn(form,'[name="fibraAcompanhanteContato"]','Informe o contato de quem irá acompanhar.');
+    if(!String(data.fibraTiNome||'').trim())return focusAndWarn(form,'[name="fibraTiNome"]','Informe o nome do responsável pelo TI.');
+    if(!String(data.fibraTiContato||'').trim())return focusAndWarn(form,'[name="fibraTiContato"]','Informe o contato do responsável pelo TI.');
+    if(!String(data.fibraMeioFechamento||'').trim())return focusAndWarn(form,'[name="fibraMeioFechamento"]','Informe o meio de fechamento.');
+    if(!String(data.fibraMeioEntrada||'').trim())return focusAndWarn(form,'[name="fibraMeioEntrada"]','Informe o meio de entrada.');
+
+    if(!checkedValue('fibraEquipamento'))return focusAndWarn(form,'input[name="fibraEquipamento"]','Informe o equipamento: ONU ou Routerboard.');
+    if(checkedValue('fibraEquipamento')==='Routerboard'&&!String(data.fibraRouterboardDetalhe||'').trim())return focusAndWarn(form,'[name="fibraRouterboardDetalhe"]','Informe o modelo/detalhe da Routerboard.');
+    if(!checkedValue('fibraVlan'))return focusAndWarn(form,'input[name="fibraVlan"]','Informe se possui VLAN.');
+    if(checkedValue('fibraVlan')==='Sim'&&!String(data.fibraVlanLiberada||'').trim())return focusAndWarn(form,'[name="fibraVlanLiberada"]','Informe qual VLAN será liberada.');
+
+    if(!isFileFilled(form,'fibraDocumentoFoto',info.documentoFoto))return focusAndWarn(form,'input[name="fibraDocumentoFoto"]','Anexe o documento com foto.');
+    if(!isFileFilled(form,'fibraSelfieDocumento',info.selfieDocumento))return focusAndWarn(form,'input[name="fibraSelfieDocumento"]','Anexe a selfie com o documento.');
+    if(!isFileFilled(form,'fibraPrintAceite',info.printAceite))return focusAndWarn(form,'input[name="fibraPrintAceite"]','Anexe o print da conversa com o aceite da contratação.');
+    return true;
+  }
+  function isWifiAdicionalSelectedInForm(form,st){
+    const catId=form.querySelector('[name="categoryId"]')?.value||'';
+    const planSelected=!!form.querySelector('[name="planIds"]')?.value;
+    return categoryIsWifiAdicional(categoryNameById(st,catId)) && planSelected;
+  }
+  function validateWifiAdicionalFields(form,opp={}){
+    const data=fd(form);
+    const info=opp?.productInfo?.wifiAdicional||{};
+    const checkedValue=(name)=>form.querySelector(`input[name="${name}"]:checked`)?.value||'';
+
+    if(!String(data.wifiVencimento||'').trim())return focusAndWarn(form,'[name="wifiVencimento"]','Informe o vencimento do WIFI Adicional.');
+    if(!checkedValue('wifiTaxaAtivacao'))return focusAndWarn(form,'input[name="wifiTaxaAtivacao"]','Informe se possui taxa de ativação.');
+    if(checkedValue('wifiTaxaAtivacao')==='Sim'&&!String(data.wifiTaxaValor||'').trim())return focusAndWarn(form,'[name="wifiTaxaValor"]','Informe o valor da taxa de ativação.');
+    if(!checkedValue('wifiFormaPagamento'))return focusAndWarn(form,'input[name="wifiFormaPagamento"]','Informe a forma de pagamento.');
+    if(checkedValue('wifiFormaPagamento')==='Boleto' && !new FormData(form).getAll('wifiEnvioFatura').length)return focusAndWarn(form,'input[name="wifiEnvioFatura"]','Informe o envio da fatura: WhatsApp ou E-mail.');
+    if(!checkedValue('wifiUnificarFaturas'))return focusAndWarn(form,'input[name="wifiUnificarFaturas"]','Informe se irá unificar faturas.');
+    if(checkedValue('wifiUnificarFaturas')==='Não'&&!String(data.wifiUnificarMotivo||'').trim())return focusAndWarn(form,'[name="wifiUnificarMotivo"]','Informe o motivo para não unificar faturas.');
+    if(!checkedValue('wifiMetragemExcedente'))return focusAndWarn(form,'input[name="wifiMetragemExcedente"]','Informe se possui metragem excedente.');
+    if(checkedValue('wifiMetragemExcedente')==='Sim'&&!String(data.wifiMetragem||'').trim())return focusAndWarn(form,'[name="wifiMetragem"]','Informe a metragem excedente.');
+    if(!String(data.wifiReservaData||'').trim())return focusAndWarn(form,'[name="wifiReservaData"]','Informe a data da reserva.');
+    if(!String(data.wifiReservaHora||'').trim())return focusAndWarn(form,'[name="wifiReservaHora"]','Informe a hora da reserva.');
+    if(!String(data.wifiNumeroConexao||'').trim())return focusAndWarn(form,'[name="wifiNumeroConexao"]','Informe o número da conexão.');
+    if(!String(data.wifiQuantidadeRoteador||'').trim())return focusAndWarn(form,'[name="wifiQuantidadeRoteador"]','Informe a quantidade de roteador.');
+    if(!String(data.wifiModeloRoteador||'').trim())return focusAndWarn(form,'[name="wifiModeloRoteador"]','Informe o modelo do roteador.');
+    if(!checkedValue('wifiCabeamento'))return focusAndWarn(form,'input[name="wifiCabeamento"]','Informe se será necessário cabeamento para instalar o equipamento.');
+    if(checkedValue('wifiCabeamento')==='Sim'&&!String(data.wifiCaboMetragem||'').trim())return focusAndWarn(form,'[name="wifiCaboMetragem"]','Informe a metragem do cabo.');
+    if(checkedValue('wifiCabeamento')==='Sim'&&!String(data.wifiHoraTecnicaQtd||'').trim())return focusAndWarn(form,'[name="wifiHoraTecnicaQtd"]','Informe a quantidade de hora técnica.');
+    if(!String(data.wifiParcelas||'').trim())return focusAndWarn(form,'[name="wifiParcelas"]','Informe em quantas vezes será parcelado o valor total.');
+
+    if(!isFileFilled(form,'wifiDocumentoFoto',info.documentoFoto))return focusAndWarn(form,'input[name="wifiDocumentoFoto"]','Anexe o documento com foto.');
+    if(!isFileFilled(form,'wifiSelfieDocumento',info.selfieDocumento))return focusAndWarn(form,'input[name="wifiSelfieDocumento"]','Anexe a selfie com o documento.');
+    if(!isFileFilled(form,'wifiPrintAceite',info.printAceite))return focusAndWarn(form,'input[name="wifiPrintAceite"]','Anexe o print da conversa com o aceite da contratação.');
+    return true;
+  }
+  function isTrocaTitularSelectedInForm(form,st){
+    const catId=form.querySelector('[name="categoryId"]')?.value||'';
+    const planSelected=!!form.querySelector('[name="planIds"]')?.value;
+    return categoryIsTrocaTitular(categoryNameById(st,catId)) && planSelected;
+  }
+  function validateTrocaTitularFields(form,opp={}){
+    const data=fd(form);
+    const info=opp?.productInfo?.trocaTitular||{};
+    const checkedValue=(name)=>form.querySelector(`input[name="${name}"]:checked`)?.value||'';
+
+    if(!String(data.ttAtualTitular||'').trim())return focusAndWarn(form,'[name="ttAtualTitular"]','Informe o atual titular.');
+    if(!String(data.ttPlanoAtual||'').trim())return focusAndWarn(form,'[name="ttPlanoAtual"]','Informe o plano atual.');
+    if(!String(data.ttValorAtual||'').trim())return focusAndWarn(form,'[name="ttValorAtual"]','Informe o valor atual.');
+    if(!String(data.ttNumeroContratoTransferido||'').trim())return focusAndWarn(form,'[name="ttNumeroContratoTransferido"]','Informe o número do contrato a ser transferido.');
+    if(!String(data.ttCodConexaoAtual||'').trim())return focusAndWarn(form,'[name="ttCodConexaoAtual"]','Informe o código da conexão atual.');
+
+    if(!String(data.ttNovoTitular||'').trim())return focusAndWarn(form,'[name="ttNovoTitular"]','Informe o novo titular.');
+    if(!String(data.ttPlanoNovo||'').trim())return focusAndWarn(form,'[name="ttPlanoNovo"]','Informe o plano do novo titular.');
+    if(!String(data.ttValorNovo||'').trim())return focusAndWarn(form,'[name="ttValorNovo"]','Informe o valor do novo titular.');
+    if(!String(data.ttDataVencimento||'').trim())return focusAndWarn(form,'[name="ttDataVencimento"]','Informe a data de vencimento.');
+    if(!String(data.ttCodNovaConexao||'').trim())return focusAndWarn(form,'[name="ttCodNovaConexao"]','Informe o código da nova conexão.');
+    if(!checkedValue('ttUnificarFaturas'))return focusAndWarn(form,'input[name="ttUnificarFaturas"]','Informe se irá unificar as faturas.');
+    if(!checkedValue('ttTrocaEquipamento'))return focusAndWarn(form,'input[name="ttTrocaEquipamento"]','Informe se haverá troca de equipamento.');
+
+    if(!String(data.ttRetirar||'').trim())return focusAndWarn(form,'[name="ttRetirar"]','Informe o que será retirado.');
+    if(!String(data.ttInstalar||'').trim())return focusAndWarn(form,'[name="ttInstalar"]','Informe o que será instalado.');
+    if(!String(data.ttDisponibilidadeCliente||'').trim())return focusAndWarn(form,'[name="ttDisponibilidadeCliente"]','Informe a disponibilidade do cliente.');
+    if(!String(data.ttRedeWifi||'').trim())return focusAndWarn(form,'[name="ttRedeWifi"]','Informe a rede WiFi.');
+    if(!String(data.ttSenhaWifi||'').trim())return focusAndWarn(form,'[name="ttSenhaWifi"]','Informe a senha.');
+    if(!String(data.ttContatoCliente||'').trim())return focusAndWarn(form,'[name="ttContatoCliente"]','Informe o contato do cliente.');
+
+    if(String(data.ttCpfSocio||'').trim() && digits(data.ttCpfSocio).length<11)return focusAndWarn(form,'[name="ttCpfSocio"]','CPF do sócio(a) está incompleto.');
+
+    if(!isFileFilled(form,'ttDocumentoFoto',info.documentoFoto))return focusAndWarn(form,'input[name="ttDocumentoFoto"]','Anexe o documento com foto.');
+    if(!isFileFilled(form,'ttSelfieDocumento',info.selfieDocumento))return focusAndWarn(form,'input[name="ttSelfieDocumento"]','Anexe a selfie com o documento.');
+    if(!isFileFilled(form,'ttPrintAceite',info.printAceite))return focusAndWarn(form,'input[name="ttPrintAceite"]','Anexe o print da conversa com o aceite da contratação.');
+    return true;
+  }
+  function isTrocaEnderecoSelectedInForm(form,st){
+    const catId=form.querySelector('[name="categoryId"]')?.value||'';
+    const planSelected=!!form.querySelector('[name="planIds"]')?.value;
+    return categoryIsTrocaEndereco(categoryNameById(st,catId)) && planSelected;
+  }
+  function validateTrocaEnderecoFields(form,opp={}){
+    const data=fd(form);
+    const checkedValue=(name)=>form.querySelector(`input[name="${name}"]:checked`)?.value||'';
+
+    if(!String(data.teEnderecoAtual||'').trim())return focusAndWarn(form,'[name="teEnderecoAtual"]','Informe o endereço atual.');
+    if(!String(data.teNovoEndereco||'').trim())return focusAndWarn(form,'[name="teNovoEndereco"]','Informe o novo endereço.');
+    if(!String(data.tePlano||'').trim())return focusAndWarn(form,'[name="tePlano"]','Informe o plano.');
+    if(!String(data.teNumeroContrato||'').trim())return focusAndWarn(form,'[name="teNumeroContrato"]','Informe o número do contrato.');
+    if(!String(data.teTelefoneContato||'').trim())return focusAndWarn(form,'[name="teTelefoneContato"]','Informe o telefone para contato.');
+    if(!checkedValue('teTrocaEquipamento'))return focusAndWarn(form,'input[name="teTrocaEquipamento"]','Informe se haverá troca de equipamento.');
+    if(checkedValue('teTrocaEquipamento')==='Sim'&&!String(data.teRetirar||'').trim())return focusAndWarn(form,'[name="teRetirar"]','Informe o que será retirado.');
+    if(checkedValue('teTrocaEquipamento')==='Sim'&&!String(data.teInstalar||'').trim())return focusAndWarn(form,'[name="teInstalar"]','Informe o que será instalado.');
+    if(!checkedValue('teEquipamentosNovoEndereco'))return focusAndWarn(form,'input[name="teEquipamentosNovoEndereco"]','Informe se os equipamentos já estão no novo endereço.');
+    if(!String(data.teCaixaMetragem||'').trim())return focusAndWarn(form,'[name="teCaixaMetragem"]','Informe caixa/metragem.');
+    if(!String(data.teCoordenadas||'').trim())return focusAndWarn(form,'[name="teCoordenadas"]','Informe as coordenadas.');
+    if(!String(data.teMetragemExcedente||'').trim())return focusAndWarn(form,'[name="teMetragemExcedente"]','Informe a metragem excedente.');
+    if(!checkedValue('teTaxaMudanca'))return focusAndWarn(form,'input[name="teTaxaMudanca"]','Informe a opção de taxa de mudança de endereço.');
+    if(!String(data.teDataVencimento||'').trim())return focusAndWarn(form,'[name="teDataVencimento"]','Informe a data de vencimento.');
+    if(!String(data.teFormaPagamento||'').trim())return focusAndWarn(form,'[name="teFormaPagamento"]','Informe a forma de pagamento.');
+    if(!checkedValue('teUnificarFaturas'))return focusAndWarn(form,'input[name="teUnificarFaturas"]','Informe se irá unificar faturas.');
+    if(checkedValue('teUnificarFaturas')==='Não'&&!String(data.teUnificarMotivo||'').trim())return focusAndWarn(form,'[name="teUnificarMotivo"]','Informe o motivo para não unificar faturas.');
+    if(!checkedValue('teNegociacaoDiferenciada'))return focusAndWarn(form,'input[name="teNegociacaoDiferenciada"]','Informe se existe negociação diferenciada.');
+    if(checkedValue('teNegociacaoDiferenciada')==='Sim'&&!String(data.teNegociacaoObs||'').trim())return focusAndWarn(form,'[name="teNegociacaoObs"]','Informe a negociação diferenciada.');
+    return true;
+  }
   function validateOppForm(form){
     const data=fd(form);
     const st=getState();
+    const existingOpp=(st.opportunities||[]).find(o=>Number(o.id)===Number(form.dataset.id||0))||{};
     if(!String(data.clientCpf||'').trim())return focusAndWarn(form,'[name="clientCpf"]','Informe o CPF/CNPJ do cliente.');
     if(digits(data.clientCpf).length<11)return focusAndWarn(form,'[name="clientCpf"]','CPF/CNPJ inválido ou incompleto.');
     if(!String(data.clientName||'').trim())return focusAndWarn(form,'[name="clientName"]','Informe o nome do cliente.');
@@ -3376,27 +3755,14 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       if(!String(data.categoryId||'').trim())return focusAndWarn(form,'[name="categoryId"]','Selecione o tipo de contratação.');
       const planValue=form.querySelector('select[name="planIds"]')?.value||'';
       if(!String(planValue).trim() || Number(planValue)===0)return focusAndWarn(form,'[name="planIds"]','Selecione o produto/plano da categoria escolhida.');
+      if(isFibraSelectedInForm(form,st) && !validateFibraFields(form,existingOpp))return false;
+      if(isWifiAdicionalSelectedInForm(form,st) && !validateWifiAdicionalFields(form,existingOpp))return false;
+      if(isTrocaTitularSelectedInForm(form,st) && !validateTrocaTitularFields(form,existingOpp))return false;
+      if(isTrocaEnderecoSelectedInForm(form,st) && !validateTrocaEnderecoFields(form,existingOpp))return false;
     }
     return true;
   }
-  function submitLogin(form){const data=fd(form);const st=getState();const login=String(data.username||'').trim().toLowerCase();const u=st.users.find(x=>String(x.username||'').toLowerCase()===login&&x.password===data.password&&x.active);if(!u){toast('Usuário ou senha inválidos.','error');return}setUser(u.id);location.hash=u.mustChangePassword?'#/login/primeiro-acesso':'#/crm';render()}
-  function submitFirstAccess(form){
-    const data=fd(form);const st=getState();const user=getUser();
-    if(!user){toast('Sua sessão expirou. Faça login novamente.','error');render();return}
-    const username=String(data.username||'').trim().toLowerCase();
-    if(username!==String(user.username||'').toLowerCase()){toast('Confirme o mesmo usuário autenticado para continuar.','error');return}
-    if(data.currentPassword!==user.password){toast('Senha atual incorreta.','error');return}
-    if(String(data.newPassword||'').length<8){toast('A nova senha deve ter no mínimo 8 caracteres.','error');return}
-    if(data.newPassword!==data.confirmPassword){toast('A confirmação da nova senha não confere.','error');return}
-    const target=st.users.find(x=>Number(x.id)===Number(user.id));
-    if(!target){toast('Usuário não encontrado.','error');return}
-    target.password=data.newPassword;
-    target.mustChangePassword=false;
-    setState(st);
-    location.hash='#/crm';
-    render();
-    toast('Senha atualizada com sucesso.');
-  }
+  function submitLogin(form){const data=fd(form);const st=getState();const u=st.users.find(x=>x.username===data.username&&x.password===data.password&&x.active);if(!u){toast('Usuário ou senha inválidos.','error');return}setUser(u.id);location.hash='#/crm';render()}
   function fileNameFromForm(form,fileInputName,currentInputName){const file=form.querySelector(`input[name="${fileInputName}"]`)?.files?.[0];return file?.name||form.querySelector(`input[name="${currentInputName}"]`)?.value||''
     const centralNuvemBox=form.querySelector('[data-product-section="centralNuvem"]');
     const isCentralNuvem=normName(catName)==='CENTRAL EM NUVEM';
@@ -3418,9 +3784,93 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       metragem:data.fibraMetragem||'',
       reservaData:data.fibraReservaData||'',
       reservaHora:data.fibraReservaHora||'',
+      servicosContratados:data.fibraServicosContratados||'',
+      pontoA:data.fibraPontoA||'',
+      pontoB:data.fibraPontoB||'',
+      documentacoesAdicionais:data.fibraDocumentacoesAdicionais||'',
+      acompanhanteNome:data.fibraAcompanhanteNome||'',
+      acompanhanteContato:data.fibraAcompanhanteContato||'',
+      tiNome:data.fibraTiNome||'',
+      tiContato:data.fibraTiContato||'',
+      meioFechamento:data.fibraMeioFechamento||'',
+      meioEntrada:data.fibraMeioEntrada||'',
+      obs:data.fibraObs||'',
+      equipamento:form.querySelector('input[name="fibraEquipamento"]:checked')?.value||'',
+      routerboardDetalhe:data.fibraRouterboardDetalhe||'',
+      vlan:form.querySelector('input[name="fibraVlan"]:checked')?.value||'',
+      vlanLiberada:data.fibraVlanLiberada||'',
       documentoFoto:await fileRecordFromForm(form,'fibraDocumentoFoto',current.fibra?.documentoFoto),
       selfieDocumento:await fileRecordFromForm(form,'fibraSelfieDocumento',current.fibra?.selfieDocumento),
       printAceite:await fileRecordFromForm(form,'fibraPrintAceite',current.fibra?.printAceite)
+    };
+    current.wifiAdicional={
+      vencimento:data.wifiVencimento||'',
+      taxaAtivacao:form.querySelector('input[name="wifiTaxaAtivacao"]:checked')?.value||'',
+      taxaValor:data.wifiTaxaValor||'',
+      formaPagamento:form.querySelector('input[name="wifiFormaPagamento"]:checked')?.value||'',
+      envioFatura:all.getAll('wifiEnvioFatura'),
+      unificarFaturas:form.querySelector('input[name="wifiUnificarFaturas"]:checked')?.value||'',
+      unificarMotivo:data.wifiUnificarMotivo||'',
+      metragemExcedente:form.querySelector('input[name="wifiMetragemExcedente"]:checked')?.value||'',
+      metragem:data.wifiMetragem||'',
+      reservaData:data.wifiReservaData||'',
+      reservaHora:data.wifiReservaHora||'',
+      numeroConexao:data.wifiNumeroConexao||'',
+      quantidadeRoteador:data.wifiQuantidadeRoteador||'',
+      modeloRoteador:data.wifiModeloRoteador||'',
+      cabeamento:form.querySelector('input[name="wifiCabeamento"]:checked')?.value||'',
+      caboMetragem:data.wifiCaboMetragem||'',
+      horaTecnicaQtd:data.wifiHoraTecnicaQtd||'',
+      parcelas:data.wifiParcelas||'',
+      documentoFoto:await fileRecordFromForm(form,'wifiDocumentoFoto',current.wifiAdicional?.documentoFoto),
+      selfieDocumento:await fileRecordFromForm(form,'wifiSelfieDocumento',current.wifiAdicional?.selfieDocumento),
+      printAceite:await fileRecordFromForm(form,'wifiPrintAceite',current.wifiAdicional?.printAceite)
+    };
+    current.trocaTitular={
+      atualTitular:data.ttAtualTitular||'',
+      planoAtual:data.ttPlanoAtual||'',
+      valorAtual:data.ttValorAtual||'',
+      numeroContratoTransferido:data.ttNumeroContratoTransferido||'',
+      codConexaoAtual:data.ttCodConexaoAtual||'',
+      novoTitular:data.ttNovoTitular||'',
+      planoNovo:data.ttPlanoNovo||'',
+      valorNovo:data.ttValorNovo||'',
+      dataVencimento:data.ttDataVencimento||'',
+      codNovaConexao:data.ttCodNovaConexao||'',
+      unificarFaturas:form.querySelector('input[name="ttUnificarFaturas"]:checked')?.value||'',
+      trocaEquipamento:form.querySelector('input[name="ttTrocaEquipamento"]:checked')?.value||'',
+      retirar:data.ttRetirar||'',
+      instalar:data.ttInstalar||'',
+      disponibilidadeCliente:data.ttDisponibilidadeCliente||'',
+      redeWifi:data.ttRedeWifi||'',
+      senhaWifi:data.ttSenhaWifi||'',
+      contatoCliente:data.ttContatoCliente||'',
+      socioAdministrador:data.ttSocioAdministrador||'',
+      cpfSocio:data.ttCpfSocio||'',
+      documentoFoto:await fileRecordFromForm(form,'ttDocumentoFoto',current.trocaTitular?.documentoFoto),
+      selfieDocumento:await fileRecordFromForm(form,'ttSelfieDocumento',current.trocaTitular?.selfieDocumento),
+      printAceite:await fileRecordFromForm(form,'ttPrintAceite',current.trocaTitular?.printAceite)
+    };
+    current.trocaEndereco={
+      enderecoAtual:data.teEnderecoAtual||'',
+      novoEndereco:data.teNovoEndereco||'',
+      plano:data.tePlano||'',
+      numeroContrato:data.teNumeroContrato||'',
+      telefoneContato:data.teTelefoneContato||'',
+      trocaEquipamento:form.querySelector('input[name="teTrocaEquipamento"]:checked')?.value||'',
+      retirar:data.teRetirar||'',
+      instalar:data.teInstalar||'',
+      equipamentosNovoEndereco:form.querySelector('input[name="teEquipamentosNovoEndereco"]:checked')?.value||'',
+      caixaMetragem:data.teCaixaMetragem||'',
+      coordenadas:data.teCoordenadas||'',
+      metragemExcedente:data.teMetragemExcedente||'',
+      taxaMudanca:form.querySelector('input[name="teTaxaMudanca"]:checked')?.value||'',
+      dataVencimento:data.teDataVencimento||'',
+      formaPagamento:data.teFormaPagamento||'',
+      unificarFaturas:form.querySelector('input[name="teUnificarFaturas"]:checked')?.value||'',
+      unificarMotivo:data.teUnificarMotivo||'',
+      negociacaoDiferenciada:form.querySelector('input[name="teNegociacaoDiferenciada"]:checked')?.value||'',
+      negociacaoObs:data.teNegociacaoObs||''
     };
     current.movel={
       tipoContratacao:form.querySelector('input[name="mobileTipo"]:checked')?.value||'',
@@ -3875,19 +4325,13 @@ function fmtTime(d){ d=new Date(d); return pad(d.getHours())+':'+pad(d.getMinute
 function api(method, path, body){
   return fetch(path,{
     method,
-    headers: (function(){
-      const h = typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'};
-      h['Content-Type'] = h['Content-Type'] || 'application/json';
-      const u = CS.user || (window._cs68 && window._cs68.user);
-      if(u && u.id && !h['x-user-id']) h['x-user-id'] = String(u.id);
-      return h;
-    })(),
+    headers: typeof buildAuthHeaders==='function' ? buildAuthHeaders() : {'Content-Type':'application/json'},
     body: body ? JSON.stringify(body) : undefined,
   }).then(async r=>{
     const d = await r.json().catch(()=>null);
     if(!r.ok) throw new Error(d?.error||'Erro '+r.status);
     return d;
-  }).catch(e=>{ window.__chat68LastError=e.message; console.warn('[Chat68]',method,path,e.message); return null; });
+  }).catch(e=>{ console.warn('[Chat68]',method,path,e.message); return null; });
 }
 
 // ── Som ──────────────────────────────────────────────────────────────────────
@@ -4153,15 +4597,10 @@ function _c68bindEvents(user){
     if(!queueId){ alert('Selecione a fila de atendimento.'); return; }
     if(ph.length<10){ alert('Informe o número com DDD.'); return; }
     const r=await api('POST','/api/chat/conversations',{phone:ph, queueId});
-    if(!r){ alert(window.__chat68LastError||'Não foi possível abrir o atendimento.'); return; }
+    if(!r) return;
     el.value='';
     _c68closeNewModal();
     await _c68loadList(user);
-    if(!CS.convs.some(c=>Number(c.id)===Number(r.id))){
-      CS.convs.unshift(r);
-      CS.filtered=CS.convs;
-      _c68renderList(user);
-    }
     _c68openConv(r.id,user);
   };
   window._c68sel   = id => _c68openConv(id,user);
@@ -4446,11 +4885,6 @@ async function _c68doSend(){
     :{type:'text',text};
 
   const msg=await api('POST',`/api/chat/conversations/${CS.selId}/messages`,body);
-  if(!msg){
-    if(snd){snd.disabled=false;snd.innerHTML='➤';}
-    alert(window.__chat68LastError||'Nao foi possivel enviar a mensagem.');
-    return;
-  }
   if(msg){
     // Adiciona mensagem enviada imediatamente na tela
     const box=document.getElementById('c68-msgs');
