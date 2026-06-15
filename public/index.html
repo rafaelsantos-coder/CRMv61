@@ -2671,6 +2671,9 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
     const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
     return n.includes('WIFI') && n.includes('ADICIONAL');
   }
+  function categoryIsVpn(name){
+    return normName(name)==='VPN';
+  }
   function wifiAdicionalInfoHtml(st,opp={}){
     const info=opp.productInfo?.wifiAdicional||{};
     const catId=opp.categoryId||selectedCategoryFromPlans(st,opp.planIds||[]);
@@ -2710,9 +2713,13 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
       <div class="section-title compact">Dados do serviço</div>
       <div class="form-row three">
+        <div class="field"><label>Serviços</label><input name="wifiServicos" placeholder="Descreva os serviços" value="${esc(info.servicos||'')}"></div>
         <div class="field"><label>Número da conexão</label><input name="wifiNumeroConexao" placeholder="Informe o número da conexão" value="${esc(info.numeroConexao||'')}"></div>
         <div class="field"><label>Quantidade de roteador</label><input name="wifiQuantidadeRoteador" type="number" min="1" placeholder="Quantidade" value="${esc(info.quantidadeRoteador||'')}"></div>
+      </div>
+      <div class="form-row">
         <div class="field"><label>Modelo roteador</label><input name="wifiModeloRoteador" placeholder="Modelo do roteador" value="${esc(info.modeloRoteador||'')}"></div>
+        <div class="field"><label>Parcelar valor total em</label><select name="wifiParcelas"><option value="">Selecione</option>${parcelas.map(p=>`<option value="${p}" ${selected(info.parcelas,p)}>${p}x</option>`).join('')}</select></div>
       </div>
 
       <div class="form-row">
@@ -2722,7 +2729,6 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
 
       <div class="form-row">
         <div class="field" data-cond="wifiCabeamentoSim"><label>Hora técnica</label><input name="wifiHoraTecnicaQtd" type="number" step="0.5" placeholder="Quantidade de horas" value="${esc(info.horaTecnicaQtd||'')}"></div>
-        <div class="field"><label>Parcelar valor total em</label><select name="wifiParcelas"><option value="">Selecione</option>${parcelas.map(p=>`<option value="${p}" ${selected(info.parcelas,p)}>${p}x</option>`).join('')}</select></div>
       </div>
 
       <div class="section-title compact">Documentos obrigatórios</div>
@@ -2868,6 +2874,88 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}.nowrap{white-space:n
       </div>
 
       <div class="field" data-cond="teUnificarNao"><label>Motivo para não unificar faturas</label><input name="teUnificarMotivo" placeholder="Informe o motivo" value="${esc(info.unificarMotivo||'')}"></div>
+    </div>`
+  }
+
+  function vpnInfoHtml(st,opp={}){
+    const info=opp.productInfo?.vpn||{};
+    const catId=opp.categoryId||selectedCategoryFromPlans(st,opp.planIds||[]);
+    const show=categoryIsVpn(categoryNameById(st,catId)) && !!oppPlanSelected(opp);
+    return `<div data-product-fields="vpn" class="product-fields ${show?'':'hidden'}">
+      <div class="section-title">Informações do produto — VPN</div>
+      <div class="filebox mb-product">Esses campos aparecem automaticamente quando a categoria escolhida é <strong>VPN</strong> e um produto/plano foi selecionado.</div>
+
+      <div class="section-title compact">Faturamento e cobrança</div>
+      <div class="form-row three">
+        <div class="field"><label>Vencimento</label><input name="vpnVencimento" type="number" min="1" max="31" placeholder="Dia do vencimento" value="${esc(info.vencimento||'')}"></div>
+        <div class="field"><label>Taxa de ativação</label><div class="inline-options"><label><input type="radio" name="vpnTaxaAtivacao" value="Sim" ${checked(info.taxaAtivacao,'Sim')}> Sim</label><label><input type="radio" name="vpnTaxaAtivacao" value="Não" ${checked(info.taxaAtivacao||'Não','Não')}> Não</label></div></div>
+        <div class="field" data-cond="vpnTaxaSim"><label>Valor da taxa de ativação</label><input name="vpnTaxaValor" type="number" step="0.01" placeholder="R$" value="${esc(info.taxaValor||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Forma de pagamento</label><div class="inline-options"><label><input type="radio" name="vpnFormaPagamento" value="Boleto" ${checked(info.formaPagamento||'Boleto','Boleto')}> Boleto</label><label><input type="radio" name="vpnFormaPagamento" value="Débito" ${checked(info.formaPagamento,'Débito')}> Débito</label></div></div>
+        <div class="field" data-cond="vpnPagamentoBoleto"><label>Envio da fatura</label><div class="inline-options"><label><input type="checkbox" name="vpnEnvioFatura" value="WhatsApp" ${Array.isArray(info.envioFatura)&&info.envioFatura.includes('WhatsApp')?'checked':''}> WhatsApp</label><label><input type="checkbox" name="vpnEnvioFatura" value="E-mail" ${Array.isArray(info.envioFatura)&&info.envioFatura.includes('E-mail')?'checked':''}> E-mail</label></div></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Unificar faturas</label><div class="inline-options"><label><input type="radio" name="vpnUnificarFaturas" value="Sim" ${checked(info.unificarFaturas||'Sim','Sim')}> Sim</label><label><input type="radio" name="vpnUnificarFaturas" value="Não" ${checked(info.unificarFaturas,'Não')}> Não</label></div></div>
+        <div class="field" data-cond="vpnUnificarNao"><label>Motivo para não unificar</label><input name="vpnUnificarMotivo" placeholder="Informe o motivo" value="${esc(info.unificarMotivo||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Instalação e execução</div>
+      <div class="form-row">
+        <div class="field"><label>Metragem excedente</label><div class="inline-options"><label><input type="radio" name="vpnMetragemExcedente" value="Não" ${checked(info.metragemExcedente||'Não','Não')}> Não</label><label><input type="radio" name="vpnMetragemExcedente" value="Sim" ${checked(info.metragemExcedente,'Sim')}> Sim</label></div></div>
+        <div class="field" data-cond="vpnMetragemSim"><label>Metragem excedente</label><input name="vpnMetragem" type="number" step="0.01" placeholder="Informe a metragem" value="${esc(info.metragem||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Data da reserva</label><input name="vpnReservaData" type="date" value="${esc(info.reservaData||'')}"></div>
+        <div class="field"><label>Hora da reserva</label><input name="vpnReservaHora" type="time" value="${esc(info.reservaHora||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Serviços contratados</label><textarea name="vpnServicosContratados" placeholder="Descreva os serviços contratados">${esc(info.servicosContratados||'')}</textarea></div>
+        <div class="field"><label>Documentações adicionais para execução</label><textarea name="vpnDocumentacoesAdicionais" placeholder="Documentações necessárias">${esc(info.documentacoesAdicionais||'')}</textarea></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Ponto A</label><input name="vpnPontoA" placeholder="Informe o ponto A" value="${esc(info.pontoA||'')}"></div>
+        <div class="field"><label>Ponto B</label><input name="vpnPontoB" placeholder="Informe o ponto B" value="${esc(info.pontoB||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Nome de quem irá acompanhar</label><input name="vpnAcompanhanteNome" placeholder="Nome do acompanhante" value="${esc(info.acompanhanteNome||'')}"></div>
+        <div class="field"><label>Contato de quem irá acompanhar</label><input name="vpnAcompanhanteContato" placeholder="Contato do acompanhante" value="${esc(info.acompanhanteContato||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Nome do responsável pelo TI</label><input name="vpnTiNome" placeholder="Responsável pelo TI" value="${esc(info.tiNome||'')}"></div>
+        <div class="field"><label>Contato do responsável pelo TI</label><input name="vpnTiContato" placeholder="Contato do TI" value="${esc(info.tiContato||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Meio de fechamento</label><input name="vpnMeioFechamento" placeholder="Ex: WhatsApp, ligação, presencial" value="${esc(info.meioFechamento||'')}"></div>
+        <div class="field"><label>Meio de entrada</label><input name="vpnMeioEntrada" placeholder="Ex: indicação, comercial, site" value="${esc(info.meioEntrada||'')}"></div>
+      </div>
+
+      <div class="field"><label>Obs.</label><textarea name="vpnObs" placeholder="Observações adicionais">${esc(info.obs||'')}</textarea></div>
+
+      <div class="form-row">
+        <div class="field"><label>Equipamento</label><div class="inline-options"><label><input type="radio" name="vpnEquipamento" value="ONU" ${checked(info.equipamento||'ONU','ONU')}> ONU</label><label><input type="radio" name="vpnEquipamento" value="Routerboard" ${checked(info.equipamento,'Routerboard')}> Routerboard</label></div></div>
+        <div class="field" data-cond="vpnRouterboard"><label>Routerboard / detalhe</label><input name="vpnRouterboardDetalhe" placeholder="Informe o modelo/detalhe" value="${esc(info.routerboardDetalhe||'')}"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>VLAN</label><div class="inline-options"><label><input type="radio" name="vpnVlan" value="Sim" ${checked(info.vlan,'Sim')}> Sim</label><label><input type="radio" name="vpnVlan" value="Não" ${checked(info.vlan||'Não','Não')}> Não</label></div></div>
+        <div class="field" data-cond="vpnVlanSim"><label>Qual a VLAN a ser liberada?</label><input name="vpnVlanLiberada" placeholder="Informe a VLAN" value="${esc(info.vlanLiberada||'')}"></div>
+      </div>
+
+      <div class="section-title compact">Documentos obrigatórios</div>
+      <div class="attachments-grid">
+        ${fileFieldCard('Documento com foto','vpnDocumentoFoto',info.documentoFoto)}
+        ${fileFieldCard('Selfie com o documento','vpnSelfieDocumento',info.selfieDocumento)}
+        ${fileFieldCard('Print da conversa com aceite','vpnPrintAceite',info.printAceite)}
+      </div>
     </div>`
   }
 
@@ -3174,6 +3262,14 @@ function fibraInfoHtml(st,opp={}){
     const catName=String(categoryNameById(st,catId)).toUpperCase();
     const fibraBox=form.querySelector('[data-product-fields="fibra"]');
     if(fibraBox)fibraBox.classList.toggle('hidden',!(catName==='FIBRA'&&planSelected));
+    const wifiBox=form.querySelector('[data-product-fields="wifiAdicional"]');
+    if(wifiBox)wifiBox.classList.toggle('hidden',!(categoryIsWifiAdicional(catName)&&planSelected));
+    const trocaTitularBox=form.querySelector('[data-product-fields="trocaTitular"]');
+    if(trocaTitularBox)trocaTitularBox.classList.toggle('hidden',!(categoryIsTrocaTitular(catName)&&planSelected));
+    const trocaEnderecoBox=form.querySelector('[data-product-fields="trocaEndereco"]');
+    if(trocaEnderecoBox)trocaEnderecoBox.classList.toggle('hidden',!(categoryIsTrocaEndereco(catName)&&planSelected));
+    const vpnBox=form.querySelector('[data-product-fields="vpn"]');
+    if(vpnBox)vpnBox.classList.toggle('hidden',!(categoryIsVpn(catName)&&planSelected));
     const mobileBox=form.querySelector('[data-product-fields="movel"]');
     const isMobile=normName(catName)==='TELEFONIA MOVEL';
     if(mobileBox)mobileBox.classList.toggle('hidden',!(isMobile&&planSelected));
@@ -3192,6 +3288,12 @@ function fibraInfoHtml(st,opp={}){
     form.querySelectorAll('[data-cond="wifiUnificarNao"]').forEach(el=>el.classList.toggle('hidden',val('wifiUnificarFaturas')!=='Não'));
     form.querySelectorAll('[data-cond="wifiMetragemSim"]').forEach(el=>el.classList.toggle('hidden',val('wifiMetragemExcedente')!=='Sim'));
     form.querySelectorAll('[data-cond="wifiCabeamentoSim"]').forEach(el=>el.classList.toggle('hidden',val('wifiCabeamento')!=='Sim'));
+    form.querySelectorAll('[data-cond="vpnTaxaSim"]').forEach(el=>el.classList.toggle('hidden',val('vpnTaxaAtivacao')!=='Sim'));
+    form.querySelectorAll('[data-cond="vpnPagamentoBoleto"]').forEach(el=>el.classList.toggle('hidden',val('vpnFormaPagamento')!=='Boleto'));
+    form.querySelectorAll('[data-cond="vpnUnificarNao"]').forEach(el=>el.classList.toggle('hidden',val('vpnUnificarFaturas')!=='NÃ£o'));
+    form.querySelectorAll('[data-cond="vpnMetragemSim"]').forEach(el=>el.classList.toggle('hidden',val('vpnMetragemExcedente')!=='Sim'));
+    form.querySelectorAll('[data-cond="vpnRouterboard"]').forEach(el=>el.classList.toggle('hidden',val('vpnEquipamento')!=='Routerboard'));
+    form.querySelectorAll('[data-cond="vpnVlanSim"]').forEach(el=>el.classList.toggle('hidden',val('vpnVlan')!=='Sim'));
     form.querySelectorAll('[data-cond="teTrocaEquipamentoSim"]').forEach(el=>el.classList.toggle('hidden',val('teTrocaEquipamento')!=='Sim'));
     form.querySelectorAll('[data-cond="teUnificarNao"]').forEach(el=>el.classList.toggle('hidden',val('teUnificarFaturas')!=='Não'));
     form.querySelectorAll('[data-cond="teNegociacaoSim"]').forEach(el=>el.classList.toggle('hidden',val('teNegociacaoDiferenciada')!=='Sim'));
@@ -3351,6 +3453,10 @@ function fibraInfoHtml(st,opp={}){
         <div class="section-title">Produtos</div>
         ${plansGrouped(st,opp.planIds||[],opp.categoryId||'',productRequired)}
         <div class="form-row"><div class="field"><label>Valor mensal</label><input name="monthlyValue" type="number" step="0.01" value="${opp.monthlyValue??0}"></div><div class="field"><label>Valor único</label><input name="oneTimeValue" type="number" step="0.01" value="${opp.oneTimeValue??0}"></div></div>
+        ${wifiAdicionalInfoHtml(st,opp)}
+        ${trocaTitularInfoHtml(st,opp)}
+        ${trocaEnderecoInfoHtml(st,opp)}
+        ${vpnInfoHtml(st,opp)}
         ${fibraInfoHtml(st,opp)}
         ${centralNuvemInfoHtml(st,opp)}
         ${mobileInfoHtml(st,opp)}
@@ -3728,6 +3834,7 @@ function fibraInfoHtml(st,opp={}){
     if(checkedValue('wifiMetragemExcedente')==='Sim'&&!String(data.wifiMetragem||'').trim())return focusAndWarn(form,'[name="wifiMetragem"]','Informe a metragem excedente.');
     if(!String(data.wifiReservaData||'').trim())return focusAndWarn(form,'[name="wifiReservaData"]','Informe a data da reserva.');
     if(!String(data.wifiReservaHora||'').trim())return focusAndWarn(form,'[name="wifiReservaHora"]','Informe a hora da reserva.');
+    if(!String(data.wifiServicos||'').trim())return focusAndWarn(form,'[name="wifiServicos"]','Informe os serviços.');
     if(!String(data.wifiNumeroConexao||'').trim())return focusAndWarn(form,'[name="wifiNumeroConexao"]','Informe o número da conexão.');
     if(!String(data.wifiQuantidadeRoteador||'').trim())return focusAndWarn(form,'[name="wifiQuantidadeRoteador"]','Informe a quantidade de roteador.');
     if(!String(data.wifiModeloRoteador||'').trim())return focusAndWarn(form,'[name="wifiModeloRoteador"]','Informe o modelo do roteador.');
@@ -3784,6 +3891,11 @@ function fibraInfoHtml(st,opp={}){
     const planSelected=!!form.querySelector('[name="planIds"]')?.value;
     return categoryIsTrocaEndereco(categoryNameById(st,catId)) && planSelected;
   }
+  function isVpnSelectedInForm(form,st){
+    const catId=form.querySelector('[name="categoryId"]')?.value||'';
+    const planSelected=!!form.querySelector('[name="planIds"]')?.value;
+    return categoryIsVpn(categoryNameById(st,catId)) && planSelected;
+  }
   function validateTrocaEnderecoFields(form,opp={}){
     const data=fd(form);
     const checkedValue=(name)=>form.querySelector(`input[name="${name}"]:checked`)?.value||'';
@@ -3809,6 +3921,41 @@ function fibraInfoHtml(st,opp={}){
     if(checkedValue('teNegociacaoDiferenciada')==='Sim'&&!String(data.teNegociacaoObs||'').trim())return focusAndWarn(form,'[name="teNegociacaoObs"]','Informe a negociação diferenciada.');
     return true;
   }
+  function validateVpnFields(form,opp={}){
+    const data=fd(form);
+    const info=opp?.productInfo?.vpn||{};
+    const checkedValue=(name)=>form.querySelector(`input[name="${name}"]:checked`)?.value||'';
+
+    if(!String(data.vpnVencimento||'').trim())return focusAndWarn(form,'[name="vpnVencimento"]','Informe o vencimento da VPN.');
+    if(!checkedValue('vpnTaxaAtivacao'))return focusAndWarn(form,'input[name="vpnTaxaAtivacao"]','Informe se possui taxa de ativação.');
+    if(checkedValue('vpnTaxaAtivacao')==='Sim'&&!String(data.vpnTaxaValor||'').trim())return focusAndWarn(form,'[name="vpnTaxaValor"]','Informe o valor da taxa de ativação.');
+    if(!checkedValue('vpnFormaPagamento'))return focusAndWarn(form,'input[name="vpnFormaPagamento"]','Informe a forma de pagamento.');
+    if(checkedValue('vpnFormaPagamento')==='Boleto' && !new FormData(form).getAll('vpnEnvioFatura').length)return focusAndWarn(form,'input[name="vpnEnvioFatura"]','Informe o envio da fatura: WhatsApp ou E-mail.');
+    if(!checkedValue('vpnUnificarFaturas'))return focusAndWarn(form,'input[name="vpnUnificarFaturas"]','Informe se irá unificar faturas.');
+    if(checkedValue('vpnUnificarFaturas')==='Não'&&!String(data.vpnUnificarMotivo||'').trim())return focusAndWarn(form,'[name="vpnUnificarMotivo"]','Informe o motivo para não unificar faturas.');
+    if(!checkedValue('vpnMetragemExcedente'))return focusAndWarn(form,'input[name="vpnMetragemExcedente"]','Informe se possui metragem excedente.');
+    if(checkedValue('vpnMetragemExcedente')==='Sim'&&!String(data.vpnMetragem||'').trim())return focusAndWarn(form,'[name="vpnMetragem"]','Informe a metragem excedente.');
+    if(!String(data.vpnReservaData||'').trim())return focusAndWarn(form,'[name="vpnReservaData"]','Informe a data da reserva.');
+    if(!String(data.vpnReservaHora||'').trim())return focusAndWarn(form,'[name="vpnReservaHora"]','Informe a hora da reserva.');
+    if(!String(data.vpnServicosContratados||'').trim())return focusAndWarn(form,'[name="vpnServicosContratados"]','Informe os serviços contratados.');
+    if(!String(data.vpnPontoA||'').trim())return focusAndWarn(form,'[name="vpnPontoA"]','Informe o Ponto A.');
+    if(!String(data.vpnPontoB||'').trim())return focusAndWarn(form,'[name="vpnPontoB"]','Informe o Ponto B.');
+    if(!String(data.vpnAcompanhanteNome||'').trim())return focusAndWarn(form,'[name="vpnAcompanhanteNome"]','Informe o nome de quem irá acompanhar.');
+    if(!String(data.vpnAcompanhanteContato||'').trim())return focusAndWarn(form,'[name="vpnAcompanhanteContato"]','Informe o contato de quem irá acompanhar.');
+    if(!String(data.vpnTiNome||'').trim())return focusAndWarn(form,'[name="vpnTiNome"]','Informe o nome do responsável pelo TI.');
+    if(!String(data.vpnTiContato||'').trim())return focusAndWarn(form,'[name="vpnTiContato"]','Informe o contato do responsável pelo TI.');
+    if(!String(data.vpnMeioFechamento||'').trim())return focusAndWarn(form,'[name="vpnMeioFechamento"]','Informe o meio de fechamento.');
+    if(!String(data.vpnMeioEntrada||'').trim())return focusAndWarn(form,'[name="vpnMeioEntrada"]','Informe o meio de entrada.');
+    if(!checkedValue('vpnEquipamento'))return focusAndWarn(form,'input[name="vpnEquipamento"]','Informe o equipamento: ONU ou Routerboard.');
+    if(checkedValue('vpnEquipamento')==='Routerboard'&&!String(data.vpnRouterboardDetalhe||'').trim())return focusAndWarn(form,'[name="vpnRouterboardDetalhe"]','Informe o modelo/detalhe da Routerboard.');
+    if(!checkedValue('vpnVlan'))return focusAndWarn(form,'input[name="vpnVlan"]','Informe se possui VLAN.');
+    if(checkedValue('vpnVlan')==='Sim'&&!String(data.vpnVlanLiberada||'').trim())return focusAndWarn(form,'[name="vpnVlanLiberada"]','Informe qual VLAN será liberada.');
+
+    if(!isFileFilled(form,'vpnDocumentoFoto',info.documentoFoto))return focusAndWarn(form,'input[name="vpnDocumentoFoto"]','Anexe o documento com foto.');
+    if(!isFileFilled(form,'vpnSelfieDocumento',info.selfieDocumento))return focusAndWarn(form,'input[name="vpnSelfieDocumento"]','Anexe a selfie com o documento.');
+    if(!isFileFilled(form,'vpnPrintAceite',info.printAceite))return focusAndWarn(form,'input[name="vpnPrintAceite"]','Anexe o print da conversa com o aceite da contratação.');
+    return true;
+  }
   function validateOppForm(form){
     const data=fd(form);
     const st=getState();
@@ -3825,6 +3972,7 @@ function fibraInfoHtml(st,opp={}){
       if(isWifiAdicionalSelectedInForm(form,st) && !validateWifiAdicionalFields(form,existingOpp))return false;
       if(isTrocaTitularSelectedInForm(form,st) && !validateTrocaTitularFields(form,existingOpp))return false;
       if(isTrocaEnderecoSelectedInForm(form,st) && !validateTrocaEnderecoFields(form,existingOpp))return false;
+      if(isVpnSelectedInForm(form,st) && !validateVpnFields(form,existingOpp))return false;
     }
     return true;
   }
@@ -3957,6 +4105,7 @@ function fibraInfoHtml(st,opp={}){
       metragem:data.wifiMetragem||'',
       reservaData:data.wifiReservaData||'',
       reservaHora:data.wifiReservaHora||'',
+      servicos:data.wifiServicos||'',
       numeroConexao:data.wifiNumeroConexao||'',
       quantidadeRoteador:data.wifiQuantidadeRoteador||'',
       modeloRoteador:data.wifiModeloRoteador||'',
@@ -4013,6 +4162,37 @@ function fibraInfoHtml(st,opp={}){
       unificarMotivo:data.teUnificarMotivo||'',
       negociacaoDiferenciada:form.querySelector('input[name="teNegociacaoDiferenciada"]:checked')?.value||'',
       negociacaoObs:data.teNegociacaoObs||''
+    };
+    current.vpn={
+      vencimento:data.vpnVencimento||'',
+      taxaAtivacao:form.querySelector('input[name="vpnTaxaAtivacao"]:checked')?.value||'',
+      taxaValor:data.vpnTaxaValor||'',
+      formaPagamento:form.querySelector('input[name="vpnFormaPagamento"]:checked')?.value||'',
+      envioFatura:all.getAll('vpnEnvioFatura'),
+      unificarFaturas:form.querySelector('input[name="vpnUnificarFaturas"]:checked')?.value||'',
+      unificarMotivo:data.vpnUnificarMotivo||'',
+      metragemExcedente:form.querySelector('input[name="vpnMetragemExcedente"]:checked')?.value||'',
+      metragem:data.vpnMetragem||'',
+      reservaData:data.vpnReservaData||'',
+      reservaHora:data.vpnReservaHora||'',
+      servicosContratados:data.vpnServicosContratados||'',
+      pontoA:data.vpnPontoA||'',
+      pontoB:data.vpnPontoB||'',
+      documentacoesAdicionais:data.vpnDocumentacoesAdicionais||'',
+      acompanhanteNome:data.vpnAcompanhanteNome||'',
+      acompanhanteContato:data.vpnAcompanhanteContato||'',
+      tiNome:data.vpnTiNome||'',
+      tiContato:data.vpnTiContato||'',
+      meioFechamento:data.vpnMeioFechamento||'',
+      meioEntrada:data.vpnMeioEntrada||'',
+      obs:data.vpnObs||'',
+      equipamento:form.querySelector('input[name="vpnEquipamento"]:checked')?.value||'',
+      routerboardDetalhe:data.vpnRouterboardDetalhe||'',
+      vlan:form.querySelector('input[name="vpnVlan"]:checked')?.value||'',
+      vlanLiberada:data.vpnVlanLiberada||'',
+      documentoFoto:await fileRecordFromForm(form,'vpnDocumentoFoto',current.vpn?.documentoFoto),
+      selfieDocumento:await fileRecordFromForm(form,'vpnSelfieDocumento',current.vpn?.selfieDocumento),
+      printAceite:await fileRecordFromForm(form,'vpnPrintAceite',current.vpn?.printAceite)
     };
     current.movel={
       tipoContratacao:form.querySelector('input[name="mobileTipo"]:checked')?.value||'',
